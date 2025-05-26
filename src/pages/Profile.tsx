@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { UserContext } from '../context/UserContext';
 import { Upload, Lock, Mail, User, Shield, Save } from 'lucide-react';
 
@@ -11,10 +11,26 @@ const Profile: React.FC = () => {
     email: user.email,
     role: user.role,
     phone: '+254 712 345 678',
-    department: 'Administration',
+    department: user.department || 'Administration', // No error now
     joinDate: '2021-05-15'
   });
-  
+
+  // Keep userInfo in sync with context when not editing
+  useEffect(() => {
+    if (!editMode) {
+      setUserInfo({
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        phone: userInfo.phone,
+        department: userInfo.department,
+        joinDate: userInfo.joinDate
+      });
+      setProfileImage(user.avatar);
+    }
+    // eslint-disable-next-line
+  }, [user, editMode]);
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -25,33 +41,31 @@ const Profile: React.FC = () => {
       reader.readAsDataURL(file);
     }
   };
-  
+
   const handleSaveProfile = () => {
-    // Update context with new values
-    setUser({
+    // Update context and localStorage with new values
+    const updatedUser = {
       ...user,
       name: userInfo.name,
       email: userInfo.email,
       avatar: profileImage,
-      role: userInfo.role
-    });
-    
+      role: userInfo.role,
+      // Optionally add department if you want to persist it
+      department: userInfo.department,
+    };
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+
     // In a real app, you would save these changes to your backend
-    console.log('Profile updated:', {
-      ...userInfo,
-      avatar: profileImage
-    });
-    
     setEditMode(false);
   };
-  
+
   return (
     <div className="space-y-6">
       {/* Profile Information */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">My Profile</h1>
-          
           {editMode ? (
             <button 
               onClick={handleSaveProfile}
@@ -122,7 +136,7 @@ const Profile: React.FC = () => {
                     />
                   </div>
                 ) : (
-                  <p className="text-gray-900">{userInfo.name}</p>
+                  <p className="text-gray-900">{user.name}</p>
                 )}
               </div>
               
@@ -143,7 +157,7 @@ const Profile: React.FC = () => {
                     />
                   </div>
                 ) : (
-                  <p className="text-gray-900">{userInfo.email}</p>
+                  <p className="text-gray-900">{user.email}</p>
                 )}
               </div>
               
@@ -183,7 +197,7 @@ const Profile: React.FC = () => {
                     </select>
                   </div>
                 ) : (
-                  <p className="text-gray-900">{userInfo.role}</p>
+                  <p className="text-gray-900">{user.role}</p>
                 )}
               </div>
               

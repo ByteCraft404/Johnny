@@ -43,6 +43,7 @@ const Register: React.FC = () => {
           email: data.email,
           avatar: data.avatar || '',
           role: data.role,
+          department: data.department || 'Administration', // <-- Add this
         }));
         navigate('/login');
       } else {

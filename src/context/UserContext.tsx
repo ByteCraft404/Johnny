@@ -5,6 +5,7 @@ interface User {
   email: string;
   avatar: string;
   role: string;
+  department?: string; // <-- Add this line
 }
 
 interface UserContextType {

@@ -37,6 +37,7 @@ const Login: React.FC = () => {
           email: data.email,
           avatar: data.avatar || '',
           role: data.role,
+          department: data.department || 'Administration', // <-- Add this
         }));
         setUser({
           name: data.name,
