@@ -365,6 +365,21 @@ app.post('/api/events', (req, res) => {
   res.status(201).json(newEvent);
 });
 
+// Trips endpoints
+app.get('/api/trips', (req, res) => {
+  res.json(trips);
+});
+
+// Bookings endpoints
+app.get('/api/bookings', (req, res) => {
+  res.json(bookings);
+});
+
+// Customers endpoints
+app.get('/api/customers', (req, res) => {
+  res.json(customers);
+});
+
 // Initialize some dummy data
 const initializeDummyData = () => {
   // Add some dummy drivers
@@ -458,6 +473,56 @@ const initializeDummyData = () => {
       status: 'Scheduled'
     },
     // Add more dummy events...
+  ];
+
+  // Add some dummy trips
+  trips = [
+    {
+      id: '1',
+      routeId: '1',
+      company: 'Express Bus Co.',
+      vehicleType: 'Bus',
+      service: 'Standard',
+      departureTime: '2024-06-01T08:00:00Z',
+      arrivalTime: '2024-06-01T15:30:00Z',
+      price: 1500,
+      availableSeats: 30,
+      totalSeats: 45,
+      features: ['AC', 'WiFi'],
+      fromCity: 'Nairobi',
+      toCity: 'Mombasa'
+    },
+    // ...more trips
+  ];
+
+  // Add some dummy bookings
+  bookings = [
+    {
+      id: '1',
+      bookingReference: 'ABC123',
+      tripId: '1',
+      customerId: '1',
+      seatNumbers: [12, 13],
+      totalAmount: 3000,
+      status: 'confirmed',
+      paymentStatus: 'completed',
+      paymentMethod: 'Mpesa',
+      createdAt: '2024-05-25T10:00:00Z'
+    },
+    // ...more bookings
+  ];
+
+  // Add some dummy customers
+  customers = [
+    {
+      id: '1',
+      fullName: 'John Doe',
+      phoneNumber: '+254712345678',
+      email: 'john@example.com',
+      idNumber: '12345678',
+      createdAt: '2024-05-20T09:00:00Z'
+    },
+    // ...more customers
   ];
 };
 
