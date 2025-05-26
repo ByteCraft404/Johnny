@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { UserContext } from '../context/UserContext';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { setUser } = useContext(UserContext);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -31,11 +33,17 @@ const Login: React.FC = () => {
 
       if (response.ok) {
         localStorage.setItem('user', JSON.stringify({
-          name: data.user.name, // from backend
-          email: data.user.email,
-          avatar: data.user.avatar || '',
-          role: data.user.role,
+          name: data.name,
+          email: data.email,
+          avatar: data.avatar || '',
+          role: data.role,
         }));
+        setUser({
+          name: data.name,
+          email: data.email,
+          avatar: data.avatar || '',
+          role: data.role,
+        });
         localStorage.setItem('token', data.token);
         navigate('/');
       } else {
