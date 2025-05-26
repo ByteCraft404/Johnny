@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' })); // or higher if needed
 
 // JWT secret key
 const JWT_SECRET = 'your-secret-key';
@@ -18,6 +18,8 @@ let schedules = [];
 let trips = [];
 let bookings = [];
 let customers = [];
+let routes = []; // Added routes array
+let events = []; // Added events array
 
 // Authentication Middleware
 const authenticateToken = (req, res, next) => {
@@ -110,25 +112,25 @@ app.post('/api/drivers', authenticateToken, (req, res) => {
 app.put('/api/drivers/:id', authenticateToken, (req, res) => {
   const id = parseInt(req.params.id);
   const index = drivers.findIndex(driver => driver.id === id);
-  
   if (index === -1) {
     return res.status(404).json({ message: 'Driver not found' });
   }
-  
-  drivers[index] = { ...drivers[index], ...req.body };
+  drivers[index] = {
+    ...drivers[index],
+    ...req.body, // This allows updating status and any other fields
+  };
   res.json(drivers[index]);
 });
 
 app.delete('/api/drivers/:id', authenticateToken, (req, res) => {
   const id = parseInt(req.params.id);
   const index = drivers.findIndex(driver => driver.id === id);
-  
-  if (index === -1) {
-    return res.status(404).json({ message: 'Driver not found' });
+  if (index !== -1) {
+    drivers.splice(index, 1);
+    res.status(200).json({ message: 'Driver deleted' });
+  } else {
+    res.status(404).json({ message: 'Driver not found' });
   }
-  
-  drivers.splice(index, 1);
-  res.status(204).send();
 });
 
 // Vehicles endpoints
@@ -139,7 +141,28 @@ app.get('/api/vehicles', authenticateToken, (req, res) => {
 app.post('/api/vehicles', authenticateToken, (req, res) => {
   const newVehicle = {
     id: vehicles.length + 1,
-    ...req.body,
+    regNumber: req.body.regNumber,
+    type: req.body.type,
+    make: req.body.make || '',
+    model: req.body.model || '',
+    year: req.body.year || '',
+    capacity: req.body.capacity,
+    fuelType: req.body.fuelType || '',
+    fuelCapacity: req.body.fuelCapacity || '',
+    condition: req.body.condition || '',
+    purchaseDate: req.body.purchaseDate || '',
+    assignedDriver: req.body.assignedDriver || '',
+    driver: req.body.assignedDriver || '', // for compatibility
+    airConditioned: req.body.airConditioned || false,
+    wifi: req.body.wifi || false,
+    tv: req.body.tv || false,
+    refreshments: req.body.refreshments || false,
+    imageUrl: req.body.imageUrl || '',
+    status: 'Available',
+    lastMaintenance: '',
+    route: '',
+    departureTime: '',
+    arrivalTime: '',
     createdAt: new Date().toISOString()
   };
   vehicles.push(newVehicle);
@@ -149,12 +172,31 @@ app.post('/api/vehicles', authenticateToken, (req, res) => {
 app.put('/api/vehicles/:id', authenticateToken, (req, res) => {
   const id = parseInt(req.params.id);
   const index = vehicles.findIndex(vehicle => vehicle.id === id);
-  
+
   if (index === -1) {
     return res.status(404).json({ message: 'Vehicle not found' });
   }
-  
-  vehicles[index] = { ...vehicles[index], ...req.body };
+
+  // Update all fields
+  vehicles[index] = {
+    ...vehicles[index],
+    regNumber: req.body.regNumber ?? vehicles[index].regNumber,
+    type: req.body.type ?? vehicles[index].type,
+    make: req.body.make ?? vehicles[index].make,
+    model: req.body.model ?? vehicles[index].model,
+    year: req.body.year ?? vehicles[index].year,
+    capacity: req.body.capacity ?? vehicles[index].capacity,
+    fuelType: req.body.fuelType ?? vehicles[index].fuelType,
+    condition: req.body.condition ?? vehicles[index].condition,
+    status: req.body.status ?? vehicles[index].status,
+    assignedDriver: req.body.assignedDriver ?? req.body.driver ?? vehicles[index].assignedDriver,
+    driver: req.body.driver ?? vehicles[index].driver,
+    route: req.body.route ?? vehicles[index].route,
+    departureTime: req.body.departureTime ?? vehicles[index].departureTime,
+    arrivalTime: req.body.arrivalTime ?? vehicles[index].arrivalTime,
+    lastMaintenance: req.body.lastMaintenance ?? vehicles[index].lastMaintenance,
+    imageUrl: req.body.imageUrl ?? vehicles[index].imageUrl,
+  };
   res.json(vehicles[index]);
 });
 
@@ -175,9 +217,18 @@ app.get('/api/schedules', authenticateToken, (req, res) => {
   res.json(schedules);
 });
 
+app.get('/api/schedules/:id', authenticateToken, (req, res) => {
+  const id = parseInt(req.params.id);
+  const schedule = schedules.find(s => s.id === id);
+  if (!schedule) {
+    return res.status(404).json({ message: 'Schedule not found' });
+  }
+  res.json(schedule);
+});
+
 app.post('/api/schedules', authenticateToken, (req, res) => {
   const newSchedule = {
-    id: schedules.length + 1,
+    id: schedules.length ? schedules[schedules.length - 1].id + 1 : 1,
     ...req.body,
     createdAt: new Date().toISOString()
   };
@@ -187,24 +238,20 @@ app.post('/api/schedules', authenticateToken, (req, res) => {
 
 app.put('/api/schedules/:id', authenticateToken, (req, res) => {
   const id = parseInt(req.params.id);
-  const index = schedules.findIndex(schedule => schedule.id === id);
-  
+  const index = schedules.findIndex(s => s.id === id);
   if (index === -1) {
     return res.status(404).json({ message: 'Schedule not found' });
   }
-  
   schedules[index] = { ...schedules[index], ...req.body };
   res.json(schedules[index]);
 });
 
 app.delete('/api/schedules/:id', authenticateToken, (req, res) => {
   const id = parseInt(req.params.id);
-  const index = schedules.findIndex(schedule => schedule.id === id);
-  
+  const index = schedules.findIndex(s => s.id === id);
   if (index === -1) {
     return res.status(404).json({ message: 'Schedule not found' });
   }
-  
   schedules.splice(index, 1);
   res.status(204).send();
 });
@@ -242,6 +289,82 @@ app.get('/api/reports/vehicles', authenticateToken, (req, res) => {
   res.json(report);
 });
 
+// General reports endpoint
+app.get('/api/reports', (req, res) => {
+  // Example data, replace with your actual calculations
+  res.json({
+    totalRevenue: 110000,
+    totalExpenses: 8750,
+    netProfit: 101250,
+    bookings: [
+      { name: "John Doe", route: "Nairobi - Mombasa", time: "10:30 AM", status: "Confirmed" },
+      { name: "Jane Smith", route: "Nairobi - Nakuru", time: "12:45 PM", status: "Pending" },
+      // ...more bookings
+    ]
+  });
+});
+
+// Routes endpoints
+app.get('/api/routes', authenticateToken, (req, res) => {
+  res.json(routes);
+});
+
+app.post('/api/routes', authenticateToken, (req, res) => {
+  const newRoute = {
+    id: routes.length ? routes[routes.length - 1].id + 1 : 1,
+    name: req.body.name,
+    distance: req.body.distance,
+    duration: req.body.duration,
+    fare: req.body.fare,
+    stops: req.body.stops, // should be an array
+    schedules: req.body.schedules || 0,
+    active: req.body.active !== undefined ? req.body.active : true,
+    startTime: req.body.startTime,
+    arrivalTime: req.body.arrivalTime,
+  };
+  routes.push(newRoute);
+  res.status(201).json(newRoute);
+});
+
+app.put('/api/routes/:id', authenticateToken, (req, res) => {
+  const id = parseInt(req.params.id);
+  const index = routes.findIndex(route => route.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ message: 'Route not found' });
+  }
+  
+  routes[index] = { ...routes[index], ...req.body };
+  res.json(routes[index]);
+});
+
+app.delete('/api/routes/:id', authenticateToken, (req, res) => {
+  const id = parseInt(req.params.id);
+  const index = routes.findIndex(route => route.id === id);
+  
+  if (index === -1) {
+    return res.status(404).json({ message: 'Route not found' });
+  }
+  
+  routes.splice(index, 1);
+  res.status(204).send();
+});
+
+// Events endpoints
+app.get('/api/events', (req, res) => {
+  res.json(events);
+});
+
+app.post('/api/events', (req, res) => {
+  const newEvent = {
+    id: events.length ? events[events.length - 1].id + 1 : 1,
+    ...req.body,
+    date: new Date(req.body.date), // Ensure date is a Date object
+  };
+  events.push(newEvent);
+  res.status(201).json(newEvent);
+});
+
 // Initialize some dummy data
 const initializeDummyData = () => {
   // Add some dummy drivers
@@ -276,8 +399,15 @@ const initializeDummyData = () => {
       capacity: 45,
       fuelType: 'Diesel',
       condition: 'Excellent',
-      status: 'Active',
-      assignedDriver: 'Daniel Kamau'
+      status: 'In Service', // Use 'In Service', 'Available', 'Maintenance' for status
+      assignedDriver: 'Daniel Kamau',
+      driver: 'Daniel Kamau', // For compatibility with frontend
+      route: 'Nairobi - Mombasa',
+      departureTime: '08:30 AM',
+      arrivalTime: '04:00 PM',
+      lastMaintenance: '2024-05-01',
+      imageUrl: '', // Add this for vehicle image
+      createdAt: new Date().toISOString()
     },
     // Add more dummy vehicles...
   ];
@@ -286,15 +416,48 @@ const initializeDummyData = () => {
   schedules = [
     {
       id: 1,
-      route: 'Nairobi - Mombasa',
-      departureTime: '08:30 AM',
-      arrivalTime: '04:00 PM',
-      vehicle: 'KCE 123X',
-      driver: 'Daniel Kamau',
-      status: 'Active',
-      daysOfWeek: ['Monday', 'Wednesday', 'Friday']
+      name: 'Nairobi - Mombasa',
+      distance: '485 km',
+      duration: '7h 30m',
+      fare: 'KSh 1,500',
+      stops: ['Mtito Andei', 'Voi', 'Mariakani'],
+      schedules: 8,
+      active: true,
+      startTime: '08:00',
+      arrivalTime: '15:30'
     },
     // Add more dummy schedules...
+  ];
+
+  // Add some dummy routes
+  routes = [
+    {
+      id: 1,
+      name: 'Nairobi - Mombasa',
+      distance: '485 km',
+      duration: '7h 30m',
+      fare: 'KSh 1,500',
+      stops: ['Mtito Andei', 'Voi', 'Mariakani'],
+      schedules: 8,
+      active: true,
+      startTime: '08:00',
+      arrivalTime: '15:30'
+    },
+    // Add more dummy routes...
+  ];
+
+  // Add some dummy events
+  events = [
+    {
+      id: 1,
+      name: 'Annual General Meeting',
+      date: new Date('2023-12-15T10:00:00Z'),
+      location: 'Nairobi Office',
+      description: 'End of year meeting for all staff.',
+      participants: 50,
+      status: 'Scheduled'
+    },
+    // Add more dummy events...
   ];
 };
 

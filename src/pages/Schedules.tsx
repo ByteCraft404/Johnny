@@ -1,85 +1,94 @@
-import React, { useState } from 'react';
-import { Plus, Search, Clock, Calendar, Edit, Trash2 } from 'lucide-react';
-
-// Sample schedules data
-const initialSchedules = [
-  {
-    id: 1,
-    route: 'Nairobi - Mombasa',
-    departureTime: '08:30 AM',
-    arrivalTime: '04:00 PM',
-    daysOfWeek: ['Monday', 'Wednesday', 'Friday', 'Sunday'],
-    vehicle: 'KCE 123X (Bus)',
-    driver: 'Daniel Kamau',
-    status: 'Active'
-  },
-  {
-    id: 2,
-    route: 'Nairobi - Kisumu',
-    departureTime: '09:15 AM',
-    arrivalTime: '03:30 PM',
-    daysOfWeek: ['Tuesday', 'Thursday', 'Saturday'],
-    vehicle: 'KDB 456Y (Shuttle)',
-    driver: 'Mercy Wanjiku',
-    status: 'Active'
-  },
-  {
-    id: 3,
-    route: 'Mombasa - Malindi',
-    departureTime: '10:00 AM',
-    arrivalTime: '12:30 PM',
-    daysOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
-    vehicle: 'KDD 789Z (Bus)',
-    driver: 'Hassan Omar',
-    status: 'Active'
-  },
-  {
-    id: 4,
-    route: 'Nairobi - Nakuru',
-    departureTime: '11:30 AM',
-    arrivalTime: '02:15 PM',
-    daysOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'],
-    vehicle: 'KDG 234A (Shuttle)',
-    driver: 'Jane Muthoni',
-    status: 'Inactive'
-  },
-  {
-    id: 5,
-    route: 'Kisumu - Kakamega',
-    departureTime: '02:00 PM',
-    arrivalTime: '03:15 PM',
-    daysOfWeek: ['Monday', 'Wednesday', 'Friday'],
-    vehicle: 'KDH 567B (Bus)',
-    driver: 'Joseph Kimani',
-    status: 'Active'
-  },
-];
+import React, { useState, useEffect } from 'react';
+import { Plus, Search, Clock, Edit, Trash2 } from 'lucide-react';
 
 const Schedules: React.FC = () => {
-  const [schedules, setSchedules] = useState(initialSchedules);
+  interface Schedule {
+    id: number;
+    route: string;
+    departureTime: string;
+    arrivalTime: string;
+    daysOfWeek: string[];
+    vehicle: string;
+    driver: string;
+    status: string;
+  }
+
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  interface Route {
+    id: number;
+    name: string;
+    active: boolean;
+    startTime?: string;
+    arrivalTime?: string;
+    // Add other properties if needed
+  }
+  const [routes, setRoutes] = useState<Route[]>([]);
+  interface Vehicle {
+    id: number;
+    regNumber: string;
+    type: string;
+    status: string;
+    // Add other properties if needed
+  }
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  interface Driver {
+    id: number;
+    name: string;
+    status: string;
+    // Add other properties if needed
+  }
+  const [drivers, setDrivers] = useState<Driver[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [routeFilter, setRouteFilter] = useState('All');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState<number | null>(null);
-  
-  // Get unique routes for filter dropdown
-  const routes = ['All', ...new Set(schedules.map(schedule => schedule.route))];
-  
+  const [addForm, setAddForm] = useState({
+    route: '',
+    departureTime: '',
+    arrivalTime: '',
+    daysOfWeek: [] as string[],
+    vehicle: '',
+    driver: '',
+  });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+
+  // Fetch all data on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    Promise.all([
+      fetch('http://localhost:3001/api/routes', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+      fetch('http://localhost:3001/api/vehicles', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+      fetch('http://localhost:3001/api/drivers', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+      fetch('http://localhost:3001/api/schedules', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+    ]).then(async ([routesRes, vehiclesRes, driversRes, schedulesRes]) => {
+      setRoutes(await routesRes.json());
+      setVehicles(await vehiclesRes.json());
+      setDrivers(await driversRes.json());
+      setSchedules(await schedulesRes.json());
+    });
+  }, []);
+
+  // Filter for dropdowns
+  const availableRoutes = routes.filter((r: Route) => r.active);
+  const availableVehicles = vehicles.filter((v: Vehicle) => v.status === 'Available' || v.status === 'In Service');
+  const availableDrivers = drivers.filter((d: Driver) => d.status === 'Available' || d.status === 'Driving');
+
   // Filter schedules based on search query and route filter
   const filteredSchedules = schedules.filter(schedule => {
-    const matchesSearch = schedule.route.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          schedule.vehicle.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          schedule.driver.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = schedule.route?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      schedule.vehicle?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      schedule.driver?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRoute = routeFilter === 'All' || schedule.route === routeFilter;
     return matchesSearch && matchesRoute;
   });
-  
+
   const handleDeleteClick = (id: number) => {
     setScheduleToDelete(id);
     setShowDeleteModal(true);
   };
-  
+
   const confirmDelete = () => {
     if (scheduleToDelete) {
       setSchedules(schedules.filter(schedule => schedule.id !== scheduleToDelete));
@@ -87,7 +96,7 @@ const Schedules: React.FC = () => {
       setScheduleToDelete(null);
     }
   };
-  
+
   const toggleScheduleStatus = (id: number) => {
     setSchedules(schedules.map(schedule => {
       if (schedule.id === id) {
@@ -99,7 +108,69 @@ const Schedules: React.FC = () => {
       return schedule;
     }));
   };
-  
+
+  const handleAddFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const target = e.target as HTMLInputElement | HTMLSelectElement;
+    const { name, value, type } = target;
+    if (type === 'checkbox' && name === 'daysOfWeek') {
+      const checked = (target as HTMLInputElement).checked;
+      setAddForm(prev => ({
+        ...prev,
+        daysOfWeek: checked
+          ? [...prev.daysOfWeek, value]
+          : prev.daysOfWeek.filter(day => day !== value),
+      }));
+    } else if (name === 'route') {
+      const selectedRoute = routes.find((r: Route) => r.name === value);
+      setAddForm(prev => ({
+        ...prev,
+        route: value,
+        departureTime: selectedRoute && selectedRoute.startTime ? selectedRoute.startTime : '',
+        arrivalTime: selectedRoute && selectedRoute.arrivalTime ? selectedRoute.arrivalTime : '',
+      }));
+    } else {
+      setAddForm(prev => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleAddSchedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    const newSchedule = {
+      ...addForm,
+      id: Date.now(),
+      status: 'Active',
+    };
+    const response = await fetch('http://localhost:3001/api/schedules', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: token ? `Bearer ${token}` : '',
+      },
+      body: JSON.stringify(newSchedule),
+    });
+    if (response.ok) {
+      const saved = await response.json();
+      setSchedules([...schedules, saved]);
+      setShowAddModal(false);
+      setAddForm({
+        route: '',
+        departureTime: '',
+        arrivalTime: '',
+        daysOfWeek: [],
+        vehicle: '',
+        driver: '',
+      });
+    } else {
+      alert('Failed to add schedule');
+    }
+  };
+
+
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -134,7 +205,7 @@ const Schedules: React.FC = () => {
               value={routeFilter}
               onChange={(e) => setRouteFilter(e.target.value)}
             >
-              {routes.map((route, index) => (
+              {['All', ...availableRoutes.map((route) => route.name)].map((route, index) => (
                 <option key={index} value={route}>{route}</option>
               ))}
             </select>
@@ -211,7 +282,14 @@ const Schedules: React.FC = () => {
                       >
                         {schedule.status === 'Active' ? 'Deactivate' : 'Activate'}
                       </button>
-                      <button className="text-teal-600 hover:text-teal-900" title="Edit Schedule">
+                      <button
+                        className="text-teal-600 hover:text-teal-900"
+                        title="Edit Schedule"
+                        onClick={() => {
+                          setEditingSchedule(schedule);
+                          setShowEditModal(true);
+                        }}
+                      >
                         <Edit size={18} />
                       </button>
                       <button 
@@ -241,24 +319,24 @@ const Schedules: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-auto">
             <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Schedule</h3>
-            <form>
+            <form onSubmit={handleAddSchedule}>
               <div className="mb-4">
                 <label htmlFor="route" className="block text-sm font-medium text-gray-700 mb-1">
                   Route
                 </label>
                 <select
                   id="route"
+                  name="route"
+                  value={addForm.route}
+                  onChange={handleAddFormChange}
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                 >
                   <option value="">Select Route</option>
-                  <option value="Nairobi - Mombasa">Nairobi - Mombasa</option>
-                  <option value="Nairobi - Kisumu">Nairobi - Kisumu</option>
-                  <option value="Mombasa - Malindi">Mombasa - Malindi</option>
-                  <option value="Nairobi - Nakuru">Nairobi - Nakuru</option>
-                  <option value="Kisumu - Kakamega">Kisumu - Kakamega</option>
+                  {availableRoutes.map(route => (
+                    <option key={route.id} value={route.name}>{route.name}</option>
+                  ))}
                 </select>
               </div>
-              
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label htmlFor="departureTime" className="block text-sm font-medium text-gray-700 mb-1">
@@ -267,6 +345,9 @@ const Schedules: React.FC = () => {
                   <input
                     type="time"
                     id="departureTime"
+                    name="departureTime"
+                    value={addForm.departureTime}
+                    onChange={handleAddFormChange}
                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   />
                 </div>
@@ -277,6 +358,9 @@ const Schedules: React.FC = () => {
                   <input
                     type="time"
                     id="arrivalTime"
+                    name="arrivalTime"
+                    value={addForm.arrivalTime}
+                    onChange={handleAddFormChange}
                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   />
                 </div>
@@ -287,12 +371,27 @@ const Schedules: React.FC = () => {
                   Days of Operation
                 </label>
                 <div className="grid grid-cols-7 gap-1">
-                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => (
-                    <label key={index} className="flex items-center justify-center p-2 border rounded-md cursor-pointer hover:bg-gray-50">
-                      <input type="checkbox" className="sr-only" />
-                      <span className="text-sm">{day}</span>
-                    </label>
-                  ))}
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
+                    const isSelected = addForm.daysOfWeek.includes(day);
+                    return (
+                      <label
+                        key={index}
+                        className={`flex items-center justify-center p-2 border rounded-md cursor-pointer transition-colors
+                          ${isSelected ? 'bg-green-100 text-green-800 border-green-400' : 'bg-white text-gray-700'}
+                          hover:bg-green-50`}
+                      >
+                        <input
+                          type="checkbox"
+                          name="daysOfWeek"
+                          value={day}
+                          checked={isSelected}
+                          onChange={handleAddFormChange}
+                          className="sr-only"
+                        />
+                        <span className="text-sm">{day}</span>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
               
@@ -302,13 +401,15 @@ const Schedules: React.FC = () => {
                 </label>
                 <select
                   id="vehicle"
+                  name="vehicle"
+                  value={addForm.vehicle}
+                  onChange={handleAddFormChange}
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                 >
                   <option value="">Select Vehicle</option>
-                  <option value="KCE 123X (Bus)">KCE 123X (Bus)</option>
-                  <option value="KDB 456Y (Shuttle)">KDB 456Y (Shuttle)</option>
-                  <option value="KDD 789Z (Bus)">KDD 789Z (Bus)</option>
-                  <option value="KDG 234A (Shuttle)">KDG 234A (Shuttle)</option>
+                  {availableVehicles.map(vehicle => (
+                    <option key={vehicle.id} value={vehicle.regNumber}>{vehicle.regNumber} ({vehicle.type})</option>
+                  ))}
                 </select>
               </div>
               
@@ -318,13 +419,15 @@ const Schedules: React.FC = () => {
                 </label>
                 <select
                   id="driver"
+                  name="driver"
+                  value={addForm.driver}
+                  onChange={handleAddFormChange}
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                 >
                   <option value="">Select Driver</option>
-                  <option value="Daniel Kamau">Daniel Kamau</option>
-                  <option value="Mercy Wanjiku">Mercy Wanjiku</option>
-                  <option value="Hassan Omar">Hassan Omar</option>
-                  <option value="Jane Muthoni">Jane Muthoni</option>
+                  {availableDrivers.map(driver => (
+                    <option key={driver.id} value={driver.name}>{driver.name}</option>
+                  ))}
                 </select>
               </div>
               
@@ -337,11 +440,187 @@ const Schedules: React.FC = () => {
                   Cancel
                 </button>
                 <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
+                  type="submit"
                   className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
                 >
                   Add Schedule
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Edit Schedule Modal */}
+      {showEditModal && editingSchedule && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-auto">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Edit Schedule</h3>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const token = localStorage.getItem('token');
+                const response = await fetch(`http://localhost:3001/api/schedules/${editingSchedule.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: token ? `Bearer ${token}` : '',
+                  },
+                  body: JSON.stringify(editingSchedule),
+                });
+                if (response.ok) {
+                  const updated = await response.json();
+                  setSchedules(schedules.map(s => s.id === updated.id ? updated : s));
+                  setShowEditModal(false);
+                  setEditingSchedule(null);
+                } else {
+                  alert('Failed to update schedule');
+                }
+              }}
+            >
+              {/* Route */}
+              <div className="mb-4">
+                <label htmlFor="edit-route" className="block text-sm font-medium text-gray-700 mb-1">
+                  Route
+                </label>
+                <select
+                  id="edit-route"
+                  name="route"
+                  value={editingSchedule.route}
+                  onChange={e => {
+                    const value = e.target.value;
+                    const selectedRoute = routes.find(r => r.name === value);
+                    setEditingSchedule(prev => prev ? ({
+                      ...prev,
+                      route: value,
+                      departureTime: selectedRoute?.startTime || '',
+                      arrivalTime: selectedRoute?.arrivalTime || '',
+                    }) : null);
+                  }}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                >
+                  <option value="">Select Route</option>
+                  {availableRoutes.map(route => (
+                    <option key={route.id} value={route.name}>{route.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Departure & Arrival */}
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label htmlFor="edit-departureTime" className="block text-sm font-medium text-gray-700 mb-1">
+                    Departure Time
+                  </label>
+                  <input
+                    type="time"
+                    id="edit-departureTime"
+                    name="departureTime"
+                    value={editingSchedule.departureTime}
+                    onChange={e => setEditingSchedule(prev => prev ? ({ ...prev, departureTime: e.target.value }) : null)}
+                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="edit-arrivalTime" className="block text-sm font-medium text-gray-700 mb-1">
+                    Arrival Time
+                  </label>
+                  <input
+                    type="time"
+                    id="edit-arrivalTime"
+                    name="arrivalTime"
+                    value={editingSchedule.arrivalTime}
+                    onChange={e => setEditingSchedule(prev => prev ? ({ ...prev, arrivalTime: e.target.value }) : null)}
+                    className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+              {/* Days of Operation */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Days of Operation
+                </label>
+                <div className="grid grid-cols-7 gap-1">
+                  {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
+                    const isSelected = editingSchedule.daysOfWeek.includes(day);
+                    return (
+                      <label
+                        key={index}
+                        className={`flex items-center justify-center p-2 border rounded-md cursor-pointer transition-colors
+                          ${isSelected ? 'bg-green-100 text-green-800 border-green-400' : 'bg-white text-gray-700'}
+                          hover:bg-green-50`}
+                      >
+                        <input
+                          type="checkbox"
+                          name="daysOfWeek"
+                          value={day}
+                          checked={isSelected}
+                          onChange={e => {
+                            const checked = e.target.checked;
+                            setEditingSchedule(prev => prev ? ({
+                              ...prev,
+                              daysOfWeek: checked
+                                ? [...prev.daysOfWeek, day]
+                                : prev.daysOfWeek.filter(d => d !== day)
+                            }) : null);
+                          }}
+                          className="sr-only"
+                        />
+                        <span className="text-sm">{day}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Vehicle */}
+              <div className="mb-4">
+                <label htmlFor="edit-vehicle" className="block text-sm font-medium text-gray-700 mb-1">
+                  Vehicle
+                </label>
+                <select
+                  id="edit-vehicle"
+                  name="vehicle"
+                  value={editingSchedule.vehicle}
+                  onChange={e => setEditingSchedule(prev => prev ? ({ ...prev, vehicle: e.target.value }) : null)}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                >
+                  <option value="">Select Vehicle</option>
+                  {availableVehicles.map(vehicle => (
+                    <option key={vehicle.id} value={vehicle.regNumber}>{vehicle.regNumber} ({vehicle.type})</option>
+                  ))}
+                </select>
+              </div>
+              {/* Driver */}
+              <div className="mb-4">
+                <label htmlFor="edit-driver" className="block text-sm font-medium text-gray-700 mb-1">
+                  Driver
+                </label>
+                <select
+                  id="edit-driver"
+                  name="driver"
+                  value={editingSchedule.driver}
+                  onChange={e => setEditingSchedule(prev => prev ? ({ ...prev, driver: e.target.value }) : null)}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                >
+                  <option value="">Select Driver</option>
+                  {availableDrivers.map(driver => (
+                    <option key={driver.id} value={driver.name}>{driver.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* Actions */}
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingSchedule(null); }}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

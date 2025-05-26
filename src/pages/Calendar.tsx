@@ -1,40 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isToday, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 
 // Sample events data
-const events = [
-  {
-    id: 1,
-    title: 'Bus Maintenance - KCE 123X',
-    date: new Date(2023, 5, 15),
-    type: 'maintenance'
-  },
-  {
-    id: 2,
-    title: 'Driver Meeting',
-    date: new Date(2023, 5, 18),
-    type: 'meeting'
-  },
-  {
-    id: 3,
-    title: 'Special Holiday Schedule',
-    date: new Date(2023, 5, 20),
-    type: 'schedule'
-  },
-  {
-    id: 4,
-    title: 'New Route Launch - Nairobi to Eldoret',
-    date: new Date(2023, 5, 25),
-    type: 'event'
-  },
-  {
-    id: 5,
-    title: 'Quarterly Review',
-    date: new Date(2023, 5, 28),
-    type: 'meeting'
-  }
-];
+interface CalendarEvent {
+  id: number;
+  title: string;
+  date: Date;
+  type: string;
+  description?: string;
+}
 
 const Calendar: React.FC = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -42,6 +17,22 @@ const Calendar: React.FC = () => {
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventTitle, setEventTitle] = useState('');
   const [eventType, setEventType] = useState('event');
+  const [eventTime, setEventTime] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventDate, setEventDate] = useState<Date | null>(selectedDate);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+
+  useEffect(() => {
+    fetch('http://localhost:3001/api/events')
+      .then(res => res.json())
+      .then(data => {
+        // Convert date strings to Date objects
+        setEvents(data.map((event: CalendarEvent) => ({
+          ...event,
+          date: new Date(event.date)
+        })));
+      });
+  }, []);
   
   const prevMonth = () => {
     setCurrentMonth(subMonths(currentMonth, 1));
@@ -75,7 +66,7 @@ const Calendar: React.FC = () => {
     const days = [];
     const dateFormat = 'EEEE';
     
-    let startDate = startOfWeek(currentMonth);
+    const startDate = startOfWeek(currentMonth);
     
     for (let i = 0; i < 7; i++) {
       days.push(
@@ -158,21 +149,40 @@ const Calendar: React.FC = () => {
   };
   
   const handleAddEvent = () => {
+    setEventDate(selectedDate);
     setShowEventModal(true);
   };
   
-  const handleSaveEvent = () => {
-    // In a real application, you would save the new event to your backend
-    console.log('New event:', {
+  const handleSaveEvent = async () => {
+    if (!eventTitle || !eventDate) return;
+    const fullDate = new Date(eventDate);
+    if (eventTime) {
+      const [hours, minutes] = eventTime.split(':');
+      fullDate.setHours(Number(hours), Number(minutes), 0, 0);
+    }
+    const newEvent = {
       title: eventTitle,
-      date: selectedDate,
-      type: eventType
+      date: fullDate,
+      type: eventType,
+      description: eventDescription
+    };
+    const response = await fetch('http://localhost:3001/api/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newEvent)
     });
-    
-    // Reset form and close modal
-    setEventTitle('');
-    setEventType('event');
-    setShowEventModal(false);
+    if (response.ok) {
+      const saved = await response.json();
+      setEvents([...events, { ...saved, date: new Date(saved.date) }]);
+      setEventTitle('');
+      setEventType('event');
+      setEventTime('');
+      setEventDescription('');
+      setShowEventModal(false);
+      setEventDate(selectedDate);
+    } else {
+      alert('Failed to save event');
+    }
   };
   
   return (
@@ -215,6 +225,9 @@ const Calendar: React.FC = () => {
                 <div>
                   <h3 className="font-medium">{event.title}</h3>
                   <p className="text-sm text-gray-600">{format(event.date, 'h:mm a')}</p>
+                  {event.description && (
+                    <p className="text-xs text-gray-500 mt-1">{event.description}</p>
+                  )}
                 </div>
                 <span className={`text-xs font-medium px-2 py-1 rounded-full ${
                   event.type === 'maintenance' ? 'bg-red-100 text-red-800' :
@@ -232,12 +245,6 @@ const Calendar: React.FC = () => {
             <div className="text-center py-8">
               <CalendarIcon size={40} className="mx-auto text-gray-400 mb-2" />
               <p className="text-gray-500">No events scheduled for this day.</p>
-              <button 
-                onClick={handleAddEvent}
-                className="mt-4 text-teal-600 hover:text-teal-700 font-medium"
-              >
-                Add an event
-              </button>
             </div>
           )}
         </div>
@@ -290,6 +297,8 @@ const Calendar: React.FC = () => {
                   type="time"
                   id="eventTime"
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  value={eventTime}
+                  onChange={(e) => setEventTime(e.target.value)}
                 />
               </div>
               
@@ -302,13 +311,31 @@ const Calendar: React.FC = () => {
                   rows={3}
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   placeholder="Add event details"
+                  value={eventDescription}
+                  onChange={(e) => setEventDescription(e.target.value)}
                 ></textarea>
+              </div>
+              
+              <div className="mb-4">
+                <label htmlFor="eventDate" className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  id="eventDate"
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  value={eventDate ? format(eventDate, 'yyyy-MM-dd') : ''}
+                  onChange={e => setEventDate(new Date(e.target.value + 'T00:00:00'))}
+                />
               </div>
               
               <div className="flex justify-end space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowEventModal(false)}
+                  onClick={() => {
+                    setShowEventModal(false);
+                    setEventDate(selectedDate); // Reset to selectedDate or setEventDate(null);
+                  }}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                 >
                   Cancel

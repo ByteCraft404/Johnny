@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { UserContext } from '../context/UserContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import jsPDF from 'jspdf';
 
 const revenueData = [
   { name: 'Mon', amount: 12000 },
@@ -23,6 +24,52 @@ const revenueData = [
 
 const Dashboard: React.FC = () => {
   const { user } = useContext(UserContext);
+
+  const handleGenerateReport = async () => {
+    // Fetch report data from backend
+    const response = await fetch('http://localhost:3001/api/reports');
+    if (!response.ok) {
+      alert('Failed to fetch report data');
+      return;
+    }
+    const report = await response.json();
+  
+    // Create PDF
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text('Financial Report', 14, 20);
+  
+    doc.setFontSize(12);
+    doc.text(`Date: ${new Date().toLocaleDateString()}`, 14, 30);
+  
+    doc.text('Summary:', 14, 40);
+    doc.text(`Total Revenue: KSh ${report.totalRevenue}`, 14, 48);
+    doc.text(`Total Expenses: KSh ${report.totalExpenses}`, 14, 56);
+    doc.text(`Net Profit: KSh ${report.netProfit}`, 14, 64);
+  
+    doc.text('Bookings:', 14, 76);
+    let y = 84;
+    interface Booking {
+      name: string;
+      route: string;
+      time: string;
+      status: string;
+    }
+    (report.bookings as Booking[]).forEach((booking: Booking, idx: number) => {
+      doc.text(
+        `${idx + 1}. ${booking.name} | ${booking.route} | ${booking.time} | ${booking.status}`,
+        14,
+        y
+      );
+      y += 8;
+      if (y > 270) {
+        doc.addPage();
+        y = 20;
+      }
+    });
+  
+    doc.save('financial_report.pdf');
+  };
 
   return (
     <div className="space-y-6">
@@ -151,7 +198,10 @@ const Dashboard: React.FC = () => {
               icon={<Wallet size={20} className="text-purple-500" />} 
             />
           </div>
-          <button className="mt-6 bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded-md transition duration-200">
+          <button
+            className="mt-6 bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded-md transition duration-200"
+            onClick={handleGenerateReport}
+          >
             Generate Financial Report
           </button>
         </div>

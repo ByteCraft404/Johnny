@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 
 const AddVehicle: React.FC = () => {
   const navigate = useNavigate();
+  const [drivers, setDrivers] = useState<{ id: number; name: string }[]>([]);
+  const [routes, setRoutes] = useState<{ id: number; name: string; active: boolean }[]>([]);
   const [formData, setFormData] = useState({
     regNumber: '',
     type: '',
@@ -15,26 +17,94 @@ const AddVehicle: React.FC = () => {
     fuelCapacity: '',
     condition: 'Excellent',
     purchaseDate: '',
-    assignedDriver: ''
+    assignedDriver: '',
+    airConditioned: false,
+    wifi: false,
+    tv: false,
+    refreshments: false,
+    route: '',
   });
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
+  const [vehicleImage, setVehicleImage] = useState<string>('');
+
+  useEffect(() => {
+    const fetchDrivers = async () => {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3001/api/drivers', {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDrivers(data);
+      }
+    };
+    fetchDrivers();
+  }, []);
+
+  // Define a type for route objects
+  type Route = { id: number; name: string; active: boolean };
+
+  useEffect(() => {
+    const fetchRoutes = async () => {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:3001/api/routes', {
+        headers: { Authorization: token ? `Bearer ${token}` : '' },
+      });
+      if (response.ok) {
+        const data: Route[] = await response.json();
+        setRoutes(data.filter((r: Route) => r.active));
+      }
+    };
+    fetchRoutes();
+  }, []);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]:
+        type === 'checkbox'
+          ? (e.target as HTMLInputElement).checked
+          : value,
     }));
   };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // In a real application, you would submit the data to your backend
-    console.log('Form data submitted:', formData);
-    
-    // Redirect to vehicles page
-    navigate('/vehicles');
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setVehicleImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
-  
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const token = localStorage.getItem('token');
+    const vehicleData = {
+      ...formData,
+      imageUrl: vehicleImage,
+    };
+    const response = await fetch('http://localhost:3001/api/vehicles', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: token ? `Bearer ${token}` : '',
+      },
+      body: JSON.stringify(vehicleData),
+    });
+    if (response.ok) {
+      navigate('/vehicles');
+    } else {
+      alert('Failed to add vehicle');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
@@ -44,13 +114,36 @@ const AddVehicle: React.FC = () => {
           </Link>
           <h1 className="text-2xl font-bold text-gray-800">Add New Vehicle</h1>
         </div>
-        
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column - Vehicle Information */}
             <div className="space-y-6">
               <h2 className="text-lg font-medium text-gray-700 border-b pb-2">Vehicle Information</h2>
-              
+              <div className="flex flex-col items-center mb-4">
+                <img
+                  src={vehicleImage || 'https://via.placeholder.com/120x80?text=Vehicle'}
+                  alt="Vehicle"
+                  className="h-24 w-32 rounded-lg object-cover border-4 border-teal-200 shadow mb-2"
+                />
+                <label className="bg-green-600 hover:bg-green-700 text-white rounded px-3 py-1 cursor-pointer">
+                  Upload Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                  />
+                </label>
+                {vehicleImage && (
+                  <button
+                    type="button"
+                    className="mt-2 text-red-600 hover:text-red-800 text-xs"
+                    onClick={() => setVehicleImage('')}
+                  >
+                    Remove Image
+                  </button>
+                )}
+              </div>
               <div>
                 <label htmlFor="regNumber" className="block text-sm font-medium text-gray-700 mb-1">
                   Registration Number
@@ -65,7 +158,6 @@ const AddVehicle: React.FC = () => {
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                 />
               </div>
-              
               <div>
                 <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-1">
                   Vehicle Type
@@ -84,7 +176,6 @@ const AddVehicle: React.FC = () => {
                   <option value="Van">Van</option>
                 </select>
               </div>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="make" className="block text-sm font-medium text-gray-700 mb-1">
@@ -100,7 +191,6 @@ const AddVehicle: React.FC = () => {
                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   />
                 </div>
-                
                 <div>
                   <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-1">
                     Model
@@ -116,7 +206,6 @@ const AddVehicle: React.FC = () => {
                   />
                 </div>
               </div>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
@@ -134,7 +223,6 @@ const AddVehicle: React.FC = () => {
                     className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                   />
                 </div>
-                
                 <div>
                   <label htmlFor="capacity" className="block text-sm font-medium text-gray-700 mb-1">
                     Seating Capacity
@@ -151,7 +239,6 @@ const AddVehicle: React.FC = () => {
                   />
                 </div>
               </div>
-              
               <div>
                 <label htmlFor="condition" className="block text-sm font-medium text-gray-700 mb-1">
                   Condition
@@ -171,11 +258,9 @@ const AddVehicle: React.FC = () => {
                 </select>
               </div>
             </div>
-            
             {/* Right Column - Technical Information */}
             <div className="space-y-6">
               <h2 className="text-lg font-medium text-gray-700 border-b pb-2">Technical Information</h2>
-              
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="fuelType" className="block text-sm font-medium text-gray-700 mb-1">
@@ -196,7 +281,6 @@ const AddVehicle: React.FC = () => {
                     <option value="Hybrid">Hybrid</option>
                   </select>
                 </div>
-                
                 <div>
                   <label htmlFor="fuelCapacity" className="block text-sm font-medium text-gray-700 mb-1">
                     Fuel Capacity (Liters)
@@ -212,7 +296,6 @@ const AddVehicle: React.FC = () => {
                   />
                 </div>
               </div>
-              
               <div>
                 <label htmlFor="purchaseDate" className="block text-sm font-medium text-gray-700 mb-1">
                   Purchase Date
@@ -226,7 +309,6 @@ const AddVehicle: React.FC = () => {
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                 />
               </div>
-              
               <div>
                 <label htmlFor="assignedDriver" className="block text-sm font-medium text-gray-700 mb-1">
                   Assigned Driver (Optional)
@@ -239,14 +321,32 @@ const AddVehicle: React.FC = () => {
                   className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
                 >
                   <option value="">No Driver Assigned</option>
-                  <option value="Daniel Kamau">Daniel Kamau</option>
-                  <option value="Mercy Wanjiku">Mercy Wanjiku</option>
-                  <option value="Hassan Omar">Hassan Omar</option>
-                  <option value="Jane Muthoni">Jane Muthoni</option>
-                  <option value="Joseph Kimani">Joseph Kimani</option>
+                  {drivers.map((driver) => (
+                    <option key={driver.id} value={driver.name}>
+                      {driver.name}
+                    </option>
+                  ))}
                 </select>
               </div>
-              
+              <div>
+                <label htmlFor="route" className="block text-sm font-medium text-gray-700 mb-1">
+                  Route
+                </label>
+                <select
+                  id="route"
+                  name="route"
+                  value={formData.route}
+                  onChange={handleChange}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                >
+                  <option value="">Select Route</option>
+                  {routes.map(route => (
+                    <option key={route.id} value={route.name}>
+                      {route.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className="mt-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Vehicle Features
@@ -258,6 +358,8 @@ const AddVehicle: React.FC = () => {
                       name="airConditioned"
                       type="checkbox"
                       className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                      checked={formData.airConditioned}
+                      onChange={handleChange}
                     />
                     <label htmlFor="airConditioned" className="ml-2 text-sm text-gray-700">
                       Air Conditioned
@@ -269,6 +371,8 @@ const AddVehicle: React.FC = () => {
                       name="wifi"
                       type="checkbox"
                       className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                      checked={formData.wifi}
+                      onChange={handleChange}
                     />
                     <label htmlFor="wifi" className="ml-2 text-sm text-gray-700">
                       WiFi
@@ -280,6 +384,8 @@ const AddVehicle: React.FC = () => {
                       name="tv"
                       type="checkbox"
                       className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                      checked={formData.tv}
+                      onChange={handleChange}
                     />
                     <label htmlFor="tv" className="ml-2 text-sm text-gray-700">
                       TV/Entertainment
@@ -291,6 +397,8 @@ const AddVehicle: React.FC = () => {
                       name="refreshments"
                       type="checkbox"
                       className="h-4 w-4 text-teal-600 focus:ring-teal-500 border-gray-300 rounded"
+                      checked={formData.refreshments}
+                      onChange={handleChange}
                     />
                     <label htmlFor="refreshments" className="ml-2 text-sm text-gray-700">
                       Refreshments
@@ -300,10 +408,9 @@ const AddVehicle: React.FC = () => {
               </div>
             </div>
           </div>
-          
           <div className="flex justify-end space-x-3 pt-6 border-t">
-            <Link 
-              to="/vehicles" 
+            <Link
+              to="/vehicles"
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
             >
               Cancel
