@@ -96,7 +96,7 @@ const Profile: React.FC = () => {
             
             <div className="text-center">
               <h2 className="text-xl font-bold text-gray-800">{user.name}</h2>
-              <p className="text-gray-600">{user.role}</p>
+              <p className="text-gray-600">{user.email}</p>
             </div>
           </div>
           

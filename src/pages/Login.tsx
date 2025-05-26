@@ -30,13 +30,18 @@ const Login: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('user', JSON.stringify({
+          name: data.user.name, // from backend
+          email: data.user.email,
+          avatar: data.user.avatar || '',
+          role: data.user.role,
+        }));
         localStorage.setItem('token', data.token);
         navigate('/');
       } else {
         setError(data.message || 'Login failed');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to connect to server');
     }
   };

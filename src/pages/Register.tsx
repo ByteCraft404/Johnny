@@ -38,11 +38,17 @@ const Register: React.FC = () => {
       const data = await response.json();
 
       if (response.ok) {
+        localStorage.setItem('user', JSON.stringify({
+          name: data.name, // from backend
+          email: data.email,
+          avatar: data.avatar || '',
+          role: data.role,
+        }));
         navigate('/login');
       } else {
         setError(data.message || 'Registration failed');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to connect to server');
     }
   };
