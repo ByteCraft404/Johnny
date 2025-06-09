@@ -6,6 +6,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import api from '../utils/api';
 
 const revenueData = [
   { name: 'Jan', revenue: 150000, expenses: 85000 },
@@ -210,53 +211,33 @@ const Reports: React.FC = () => {
     try {
       switch (reportType) {
         case 'financial': {
-          const response = await fetch('http://localhost:3001/api/reports');
-          if (!response.ok) {
-            alert('Failed to fetch report data');
-            break;
-          }
-          const report = await response.json();
+          const response = await api.get('/api/reports');
+          const report = response.data;
           await generateFinancialPDF(report);
           break;
         }
         case 'drivers': {
-          const response = await fetch('http://localhost:3001/api/drivers');
-          if (!response.ok) {
-            alert('Failed to fetch drivers');
-            break;
-          }
-          const drivers = await response.json();
+          const response = await api.get('/api/drivers');
+          const drivers = response.data;
           generateDriverPDF(drivers);
           break;
         }
         case 'vehicles': {
-          const response = await fetch('http://localhost:3001/api/vehicles');
-          if (!response.ok) {
-            alert('Failed to fetch vehicles');
-            break;
-          }
-          const vehicles = await response.json();
+          const response = await api.get('/api/vehicles');
+          const vehicles = response.data;
           generateVehiclePDF(vehicles);
           break;
         }
         case 'routes': {
-          const response = await fetch('http://localhost:3001/api/routes');
-          if (!response.ok) {
-            alert('Failed to fetch routes');
-            break;
-          }
-          const routes = await response.json();
+          const response = await api.get('/api/routes');
+          const routes = response.data;
           generateRoutePDF(routes);
           break;
         }
         case 'bookings': {
-          const response = await fetch('http://localhost:3001/api/bookings');
-          if (!response.ok) {
-            alert('Failed to fetch bookings');
-            break;
-          }
-          const bookings = await response.json();
-          generateBookingPDF(bookings);
+          const response = await api.get('/api/bookings');
+          const bookingsData = response.data;
+          generateBookingPDF(bookingsData);
           break;
         }
         default:
@@ -274,37 +255,36 @@ const Reports: React.FC = () => {
     try {
       switch (type) {
         case 'financial': {
-          const response = await fetch('http://localhost:3001/api/reports');
-          const report = response.ok ? await response.json() : {};
-          await generateFinancialPDF(report || {});
+          const response = await api.get('/api/reports');
+          const report = response.data;
+          await generateFinancialPDF(report);
           break;
         }
         case 'vehicles': {
-          const response = await fetch('http://localhost:3001/api/vehicles');
-          const vehiclesData = response.ok ? await response.json() : [];
-          generateVehiclePDF(vehiclesData || []);
+          const response = await api.get('/api/vehicles');
+          const vehiclesData = response.data;
+          generateVehiclePDF(vehiclesData);
           break;
         }
         case 'drivers': {
-          const response = await fetch('http://localhost:3001/api/drivers');
-          const driversData = response.ok ? await response.json() : [];
-          generateDriverPDF(driversData || []);
+          const response = await api.get('/api/drivers');
+          const driversData = response.data;
+          generateDriverPDF(driversData);
           break;
         }
         case 'routes': {
-          const response = await fetch('http://localhost:3001/api/routes');
-          const routesData = response.ok ? await response.json() : [];
-          generateRoutePDF(routesData || []);
+          const response = await api.get('/api/routes');
+          const routesData = response.data;
+          generateRoutePDF(routesData);
           break;
         }
         case 'bookings': {
-          const response = await fetch('http://localhost:3001/api/bookings');
-          const bookingsData = response.ok ? await response.json() : [];
-          generateBookingPDF(bookingsData || []);
+          const response = await api.get('/api/bookings');
+          const bookingsData = response.data;
+          generateBookingPDF(bookingsData);
           break;
         }
         default: {
-          // Always generate a blank PDF with a title for unknown types
           const doc = new jsPDF();
           doc.text('Blank Report', 14, 20);
           doc.save('blank_report.pdf');
@@ -312,7 +292,6 @@ const Reports: React.FC = () => {
         }
       }
     } catch {
-      // On any error, generate a blank PDF with a title
       const doc = new jsPDF();
       doc.text('Blank Report', 14, 20);
       doc.save('blank_report.pdf');
@@ -322,23 +301,19 @@ const Reports: React.FC = () => {
   useEffect(() => {
     const fetchData = async () => {
       if (reportType === 'vehicles') {
-        const res = await fetch('http://localhost:3001/api/vehicles');
-        setVehicles(await res.json());
+        const res = await api.get('/api/vehicles');
+        setVehicles(res.data);
       } else if (reportType === 'drivers') {
-        const res = await fetch('http://localhost:3001/api/drivers');
-        setDrivers(await res.json());
+        const res = await api.get('/api/drivers');
+        setDrivers(res.data);
       } else if (reportType === 'routes') {
-        const res = await fetch('http://localhost:3001/api/routes');
-        setRoutes(await res.json());
+        const res = await api.get('/api/routes');
+        setRoutes(res.data);
       } else if (reportType === 'bookings') {
-        const res = await fetch('http://localhost:3001/api/bookings');
-        setBookings(await res.json());
-      } else if (reportType === 'financial') {
-        // Optionally fetch financial report data here if needed for preview
-        // const res = await fetch('http://localhost:3001/api/reports');
-        // const financialData = await res.json();
-        // Use financialData as needed
+        const res = await api.get('/api/bookings');
+        setBookings(res.data);
       }
+      // Optionally fetch financial report data for preview if needed
     };
     fetchData();
   }, [reportType]);

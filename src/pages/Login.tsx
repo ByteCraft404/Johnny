@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { UserContext } from '../context/UserContext';
+import api from '../utils/api';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -21,23 +22,21 @@ const Login: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
-        method: 'POST',
+      const response = await api.post('/api/auth/login', formData, {
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(formData)
+        }
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok) {
+      if (response.status === 200) {
         localStorage.setItem('user', JSON.stringify({
           name: data.name,
           email: data.email,
           avatar: data.avatar || '',
           role: data.role,
-          department: data.department || 'Administration', // <-- Add this
+          department: data.department || 'Administration',
         }));
         setUser({
           name: data.name,
@@ -50,8 +49,12 @@ const Login: React.FC = () => {
       } else {
         setError(data.message || 'Login failed');
       }
-    } catch {
-      setError('Failed to connect to server');
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data) {
+        setError((err as { response: { data: { message: string } } }).response.data.message);
+      } else {
+        setError('Failed to connect to server');
+      }
     }
   };
 

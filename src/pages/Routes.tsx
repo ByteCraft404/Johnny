@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Plus, Search, Edit, Trash2, MapPin } from 'lucide-react';
+import api from '../utils/api';
 
 interface Route {
   id: number;
@@ -36,12 +37,13 @@ const Routes: React.FC = () => {
   useEffect(() => {
     const fetchRoutes = async () => {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/routes', {
-        headers: { Authorization: token ? `Bearer ${token}` : '' },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRoutes(data);
+      try {
+        const response = await api.get('/api/routes', {
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setRoutes(response.data);
+      } catch {
+        // Optionally handle error
       }
     };
     fetchRoutes();
@@ -78,19 +80,15 @@ const Routes: React.FC = () => {
       active: true,
       duration,
     };
-    // Remove id if present
-    delete (route as Partial<Route>).id;
-    const response = await fetch('http://localhost:3001/api/routes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-      body: JSON.stringify(route),
-    });
-    if (response.ok) {
-      const saved = await response.json();
+    try {
+      const response = await api.post('/api/routes', route, {
+        headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      });
+      const saved = response.data;
       setRoutes([...routes, saved]);
       setShowAddModal(false);
       setNewRoute({ name: '', distance: '', fare: '', stops: '', startTime: '', arrivalTime: '', duration: '' });
-    } else {
+    } catch {
       alert('Failed to add route');
     }
   };
@@ -106,16 +104,16 @@ const Routes: React.FC = () => {
     const duration = calculateDuration(editingRoute.startTime, editingRoute.arrivalTime);
     const token = localStorage.getItem('token');
     const updatedRoute = { ...editingRoute, stops: stopsArray, duration };
-    const response = await fetch(`http://localhost:3001/api/routes/${editingRoute.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-      body: JSON.stringify(updatedRoute),
-    });
-    if (response.ok) {
-      const saved = await response.json();
+    try {
+      const response = await api.put(`/api/routes/${editingRoute.id}`, updatedRoute, {
+        headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      });
+      const saved = response.data;
       setRoutes(routes.map(r => r.id === saved.id ? saved : r));
       setShowEditModal(false);
       setEditingRoute(null);
+    } catch {
+      alert('Failed to update route');
     }
   };
 
@@ -128,13 +126,16 @@ const Routes: React.FC = () => {
   const confirmDelete = async () => {
     if (routeToDelete) {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:3001/api/routes/${routeToDelete}`, {
-        method: 'DELETE',
-        headers: { Authorization: token ? `Bearer ${token}` : '' },
-      });
-      setRoutes(routes.filter(route => route.id !== routeToDelete));
-      setShowDeleteModal(false);
-      setRouteToDelete(null);
+      try {
+        await api.delete(`/api/routes/${routeToDelete}`, {
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setRoutes(routes.filter(route => route.id !== routeToDelete));
+        setShowDeleteModal(false);
+        setRouteToDelete(null);
+      } catch {
+        alert('Failed to delete route');
+      }
     }
   };
 
@@ -143,14 +144,14 @@ const Routes: React.FC = () => {
     const route = routes.find(r => r.id === id);
     if (!route) return;
     const token = localStorage.getItem('token');
-    const response = await fetch(`http://localhost:3001/api/routes/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
-      body: JSON.stringify({ ...route, active: !route.active }),
-    });
-    if (response.ok) {
-      const updated = await response.json();
+    try {
+      const response = await api.put(`/api/routes/${id}`, { ...route, active: !route.active }, {
+        headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
+      });
+      const updated = response.data;
       setRoutes(routes.map(r => r.id === id ? updated : r));
+    } catch {
+      alert('Failed to update route status');
     }
   };
 

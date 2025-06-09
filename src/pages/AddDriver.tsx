@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload } from 'lucide-react';
+import api from '../utils/api';
 
 const AddDriver: React.FC = () => {
   const navigate = useNavigate();
@@ -23,15 +24,16 @@ const AddDriver: React.FC = () => {
   useEffect(() => {
     const fetchVehicles = async () => {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/vehicles', {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : '',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
+      try {
+        const response = await api.get('/api/vehicles', {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : '',
+          },
+        });
         // Only vehicles not "In Service"
-        setVehicles(data.filter((v: { id: number; regNumber: string; type: string; status: string }) => v.status !== 'In Service'));
+        setVehicles(response.data.filter((v: { id: number; regNumber: string; type: string; status: string }) => v.status !== 'In Service'));
+      } catch {
+        // Optionally handle error
       }
     };
     fetchVehicles();
@@ -76,41 +78,35 @@ const AddDriver: React.FC = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/drivers', {
-        method: 'POST',
+      await api.post('/api/drivers', driverData, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': token ? `Bearer ${token}` : '',
+          Authorization: token ? `Bearer ${token}` : '',
         },
-        body: JSON.stringify(driverData),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to add driver');
-      }
 
       // If a vehicle was assigned, update its details
       if (formData.vehicleReg) {
         // Find the selected vehicle by regNumber
         const selectedVehicle = vehicles.find(v => v.regNumber === formData.vehicleReg);
         if (selectedVehicle) {
-          await fetch(`http://localhost:3001/api/vehicles/${selectedVehicle.id}`, {
-            method: 'PUT',
+          await api.put(`/api/vehicles/${selectedVehicle.id}`, {
+            driver: formData.name,
+            status: 'In Service',
+          }, {
             headers: {
-              'Content-Type': 'application/json',
-              'Authorization': token ? `Bearer ${token}` : '',
+              Authorization: token ? `Bearer ${token}` : '',
             },
-            body: JSON.stringify({
-              driver: formData.name,
-              status: 'In Service',
-            }),
           });
         }
       }
 
       navigate('/drivers');
-    } catch (error) {
-      alert('Error adding driver: ' + (error as Error).message);
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        alert('Error adding driver: ' + error.message);
+      } else {
+        alert('Error adding driver: Unknown error');
+      }
     }
   };
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, isToday, isSameMonth, isSameDay, addMonths, subMonths } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import api from '../utils/api'; // <-- Import your Axios instance
 
 // Sample events data
 interface CalendarEvent {
@@ -23,14 +24,15 @@ const Calendar: React.FC = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
 
   useEffect(() => {
-    fetch('http://localhost:3001/api/events')
-      .then(res => res.json())
-      .then(data => {
-        // Convert date strings to Date objects
-        setEvents(data.map((event: CalendarEvent) => ({
+    api.get('/api/events')
+      .then(res => {
+        setEvents(res.data.map((event: CalendarEvent) => ({
           ...event,
           date: new Date(event.date)
         })));
+      })
+      .catch(() => {
+        // Optionally handle error
       });
   }, []);
   
@@ -166,13 +168,11 @@ const Calendar: React.FC = () => {
       type: eventType,
       description: eventDescription
     };
-    const response = await fetch('http://localhost:3001/api/events', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newEvent)
-    });
-    if (response.ok) {
-      const saved = await response.json();
+    try {
+      const response = await api.post('/api/events', newEvent, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const saved = response.data;
       setEvents([...events, { ...saved, date: new Date(saved.date) }]);
       setEventTitle('');
       setEventType('event');
@@ -180,7 +180,7 @@ const Calendar: React.FC = () => {
       setEventDescription('');
       setShowEventModal(false);
       setEventDate(selectedDate);
-    } else {
+    } catch {
       alert('Failed to save event');
     }
   };

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Search, Clock, Edit, Trash2 } from 'lucide-react';
+import api from '../utils/api';
 
 const Schedules: React.FC = () => {
   interface Schedule {
@@ -20,7 +21,6 @@ const Schedules: React.FC = () => {
     active: boolean;
     startTime?: string;
     arrivalTime?: string;
-    // Add other properties if needed
   }
   const [routes, setRoutes] = useState<Route[]>([]);
   interface Vehicle {
@@ -28,14 +28,12 @@ const Schedules: React.FC = () => {
     regNumber: string;
     type: string;
     status: string;
-    // Add other properties if needed
   }
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   interface Driver {
     id: number;
     name: string;
     status: string;
-    // Add other properties if needed
   }
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -54,19 +52,19 @@ const Schedules: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
 
-  // Fetch all data on mount
+  // Fetch all data on mount using Axios
   useEffect(() => {
     const token = localStorage.getItem('token');
     Promise.all([
-      fetch('http://localhost:3001/api/routes', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
-      fetch('http://localhost:3001/api/vehicles', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
-      fetch('http://localhost:3001/api/drivers', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
-      fetch('http://localhost:3001/api/schedules', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
-    ]).then(async ([routesRes, vehiclesRes, driversRes, schedulesRes]) => {
-      setRoutes(await routesRes.json());
-      setVehicles(await vehiclesRes.json());
-      setDrivers(await driversRes.json());
-      setSchedules(await schedulesRes.json());
+      api.get('/api/routes', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+      api.get('/api/vehicles', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+      api.get('/api/drivers', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+      api.get('/api/schedules', { headers: { Authorization: token ? `Bearer ${token}` : '' } }),
+    ]).then(([routesRes, vehiclesRes, driversRes, schedulesRes]) => {
+      setRoutes(routesRes.data);
+      setVehicles(vehiclesRes.data);
+      setDrivers(driversRes.data);
+      setSchedules(schedulesRes.data);
     });
   }, []);
 
@@ -89,24 +87,38 @@ const Schedules: React.FC = () => {
     setShowDeleteModal(true);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (scheduleToDelete) {
-      setSchedules(schedules.filter(schedule => schedule.id !== scheduleToDelete));
-      setShowDeleteModal(false);
-      setScheduleToDelete(null);
+      const token = localStorage.getItem('token');
+      try {
+        await api.delete(`/api/schedules/${scheduleToDelete}`, {
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setSchedules(schedules.filter(schedule => schedule.id !== scheduleToDelete));
+        setShowDeleteModal(false);
+        setScheduleToDelete(null);
+      } catch {
+        alert('Failed to delete schedule');
+      }
     }
   };
 
-  const toggleScheduleStatus = (id: number) => {
-    setSchedules(schedules.map(schedule => {
-      if (schedule.id === id) {
-        return {
-          ...schedule,
-          status: schedule.status === 'Active' ? 'Inactive' : 'Active'
-        };
-      }
-      return schedule;
-    }));
+  const toggleScheduleStatus = async (id: number) => {
+    const schedule = schedules.find(s => s.id === id);
+    if (!schedule) return;
+    const token = localStorage.getItem('token');
+    try {
+      const response = await api.put(`/api/schedules/${id}`, {
+        ...schedule,
+        status: schedule.status === 'Active' ? 'Inactive' : 'Active'
+      }, {
+        headers: { Authorization: token ? `Bearer ${token}` : '', 'Content-Type': 'application/json' }
+      });
+      const updated = response.data;
+      setSchedules(schedules.map(s => s.id === id ? updated : s));
+    } catch {
+      alert('Failed to update schedule status');
+    }
   };
 
   const handleAddFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -144,16 +156,14 @@ const Schedules: React.FC = () => {
       id: Date.now(),
       status: 'Active',
     };
-    const response = await fetch('http://localhost:3001/api/schedules', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : '',
-      },
-      body: JSON.stringify(newSchedule),
-    });
-    if (response.ok) {
-      const saved = await response.json();
+    try {
+      const response = await api.post('/api/schedules', newSchedule, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+      });
+      const saved = response.data;
       setSchedules([...schedules, saved]);
       setShowAddModal(false);
       setAddForm({
@@ -164,12 +174,10 @@ const Schedules: React.FC = () => {
         vehicle: '',
         driver: '',
       });
-    } else {
+    } catch {
       alert('Failed to add schedule');
     }
   };
-
-
 
   return (
     <div className="space-y-6">
@@ -460,16 +468,16 @@ const Schedules: React.FC = () => {
               onSubmit={async (e) => {
                 e.preventDefault();
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:3001/api/schedules/${editingSchedule.id}`, {
-                  method: 'PUT',
+                const response = await api.put(`/api/schedules/${editingSchedule.id}`, {
+                  ...editingSchedule,
+                }, {
                   headers: {
                     'Content-Type': 'application/json',
                     Authorization: token ? `Bearer ${token}` : '',
                   },
-                  body: JSON.stringify(editingSchedule),
                 });
-                if (response.ok) {
-                  const updated = await response.json();
+                if (response.status >= 200 && response.status < 300) {
+                  const updated = response.data;
                   setSchedules(schedules.map(s => s.id === updated.id ? updated : s));
                   setShowEditModal(false);
                   setEditingSchedule(null);

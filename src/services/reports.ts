@@ -1,13 +1,43 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { format } from 'date-fns';
-import { supabase } from '../lib/supabase';
+import api from '../utils/api';
 
+interface Booking {
+  totalAmount: number;
+  status: string;
+  bookingReference: string;
+  paymentStatus: string;
+  createdAt: string;
+}
+
+interface Driver {
+  name: string;
+  licenseNumber: string;
+  experience: number;
+  status: string;
+  vehicleReg: string;
+}
+
+interface Vehicle {
+  regNumber: string;
+  type: string;
+  capacity: string; // Assuming capacity can be a string like '40-seater'
+  status: string;
+  driver: string | null; // Driver can be unassigned
+}
+
+interface Schedule {
+  route: string;
+  departureTime: string;
+  arrivalTime: string;
+  daysOfWeek: string[];
+  status: string;
+}
+
+// Financial Report
 export const generateFinancialReport = async () => {
-  const { data: bookings } = await supabase
-    .from('bookings')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data: bookings } = await api.get<Booking[]>('/api/bookings');
 
   const doc = new jsPDF();
   const title = 'Financial Report';
@@ -22,9 +52,9 @@ export const generateFinancialReport = async () => {
   doc.text(`Generated on: ${date}`, 14, 30);
 
   // Add summary
-  const totalRevenue = bookings?.reduce((sum, booking) => sum + Number(booking.total_amount), 0) || 0;
-  const confirmedBookings = bookings?.filter(b => b.status === 'confirmed').length || 0;
-  const pendingBookings = bookings?.filter(b => b.status === 'pending').length || 0;
+  const totalRevenue = bookings?.reduce((sum: number, booking: Booking) => sum + Number(booking.totalAmount || 0), 0) || 0;
+  const confirmedBookings = bookings?.filter((b: Booking) => b.status === 'confirmed').length || 0;
+  const pendingBookings = bookings?.filter((b: Booking) => b.status === 'pending').length || 0;
 
   doc.text(`Total Revenue: KSh ${totalRevenue.toLocaleString()}`, 14, 40);
   doc.text(`Confirmed Bookings: ${confirmedBookings}`, 14, 48);
@@ -34,12 +64,12 @@ export const generateFinancialReport = async () => {
   if (bookings?.length) {
     doc.autoTable({
       head: [['Booking Ref', 'Amount', 'Status', 'Payment Status', 'Date']],
-      body: bookings.map(booking => [
-        booking.booking_reference,
-        `KSh ${Number(booking.total_amount).toLocaleString()}`,
+      body: bookings.map((booking: Booking) => [
+        booking.bookingReference,
+        `KSh ${Number(booking.totalAmount || 0).toLocaleString()}`,
         booking.status,
-        booking.payment_status,
-        format(new Date(booking.created_at), 'yyyy-MM-dd')
+        booking.paymentStatus,
+        format(new Date(booking.createdAt), 'yyyy-MM-dd')
       ]),
       startY: 70,
       styles: { fontSize: 8 },
@@ -50,11 +80,9 @@ export const generateFinancialReport = async () => {
   doc.save(`financial-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 };
 
+// Drivers Report
 export const generateDriverReport = async () => {
-  const { data: drivers } = await supabase
-    .from('drivers')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data: drivers } = await api.get<Driver[]>('/api/drivers');
 
   const doc = new jsPDF();
   const title = 'Drivers Report';
@@ -65,8 +93,8 @@ export const generateDriverReport = async () => {
   doc.setFontSize(11);
   doc.text(`Generated on: ${date}`, 14, 30);
 
-  const activeDrivers = drivers?.filter(d => d.status === 'Active').length || 0;
-  const inactiveDrivers = drivers?.filter(d => d.status !== 'Active').length || 0;
+  const activeDrivers = drivers?.filter((d: Driver) => d.status === 'Active').length || 0;
+  const inactiveDrivers = drivers?.filter((d: Driver) => d.status !== 'Active').length || 0;
 
   doc.text(`Total Drivers: ${drivers?.length || 0}`, 14, 40);
   doc.text(`Active Drivers: ${activeDrivers}`, 14, 48);
@@ -75,12 +103,12 @@ export const generateDriverReport = async () => {
   if (drivers?.length) {
     doc.autoTable({
       head: [['Name', 'License', 'Experience', 'Status', 'Vehicle']],
-      body: drivers.map(driver => [
+      body: drivers.map((driver: Driver) => [
         driver.name,
-        driver.license_number,
+        driver.licenseNumber,
         `${driver.experience} years`,
         driver.status,
-        driver.vehicle_reg
+        driver.vehicleReg
       ]),
       startY: 70,
       styles: { fontSize: 8 },
@@ -91,11 +119,9 @@ export const generateDriverReport = async () => {
   doc.save(`drivers-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 };
 
+// Vehicles Report
 export const generateVehicleReport = async () => {
-  const { data: vehicles } = await supabase
-    .from('vehicles')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data: vehicles } = await api.get<Vehicle[]>('/api/vehicles');
 
   const doc = new jsPDF();
   const title = 'Vehicles Report';
@@ -106,8 +132,8 @@ export const generateVehicleReport = async () => {
   doc.setFontSize(11);
   doc.text(`Generated on: ${date}`, 14, 30);
 
-  const activeVehicles = vehicles?.filter(v => v.status === 'Active').length || 0;
-  const maintenanceVehicles = vehicles?.filter(v => v.status === 'Maintenance').length || 0;
+  const activeVehicles = vehicles?.filter((v: Vehicle) => v.status === 'Active').length || 0;
+  const maintenanceVehicles = vehicles?.filter((v: Vehicle) => v.status === 'Maintenance').length || 0;
 
   doc.text(`Total Vehicles: ${vehicles?.length || 0}`, 14, 40);
   doc.text(`Active Vehicles: ${activeVehicles}`, 14, 48);
@@ -116,12 +142,12 @@ export const generateVehicleReport = async () => {
   if (vehicles?.length) {
     doc.autoTable({
       head: [['Reg Number', 'Type', 'Capacity', 'Status', 'Driver']],
-      body: vehicles.map(vehicle => [
-        vehicle.reg_number,
+      body: vehicles.map((vehicle: Vehicle) => [
+        vehicle.regNumber,
         vehicle.type,
         vehicle.capacity,
         vehicle.status,
-        vehicle.assigned_driver || 'Unassigned'
+        vehicle.driver || 'Unassigned'
       ]),
       startY: 70,
       styles: { fontSize: 8 },
@@ -132,11 +158,9 @@ export const generateVehicleReport = async () => {
   doc.save(`vehicles-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
 };
 
+// Routes Report (using schedules)
 export const generateRouteReport = async () => {
-  const { data: schedules } = await supabase
-    .from('schedules')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const { data: schedules } = await api.get<Schedule[]>('/api/schedules');
 
   const doc = new jsPDF();
   const title = 'Routes Report';
@@ -147,8 +171,8 @@ export const generateRouteReport = async () => {
   doc.setFontSize(11);
   doc.text(`Generated on: ${date}`, 14, 30);
 
-  const activeRoutes = schedules?.filter(s => s.status === 'Active').length || 0;
-  const inactiveRoutes = schedules?.filter(s => s.status !== 'Active').length || 0;
+  const activeRoutes = schedules?.filter((s: Schedule) => s.status === 'Active').length || 0;
+  const inactiveRoutes = schedules?.filter((s: Schedule) => s.status !== 'Active').length || 0;
 
   doc.text(`Total Routes: ${schedules?.length || 0}`, 14, 40);
   doc.text(`Active Routes: ${activeRoutes}`, 14, 48);
@@ -157,11 +181,11 @@ export const generateRouteReport = async () => {
   if (schedules?.length) {
     doc.autoTable({
       head: [['Route', 'Departure', 'Arrival', 'Days', 'Status']],
-      body: schedules.map(schedule => [
+      body: schedules.map((schedule: Schedule) => [
         schedule.route,
-        schedule.departure_time,
-        schedule.arrival_time,
-        schedule.days_of_week.join(', '),
+        schedule.departureTime,
+        schedule.arrivalTime,
+        Array.isArray(schedule.daysOfWeek) ? schedule.daysOfWeek.join(', ') : '',
         schedule.status
       ]),
       startY: 70,

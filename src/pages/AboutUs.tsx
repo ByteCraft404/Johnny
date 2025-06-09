@@ -1,32 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Edit, Save, X, Info, Mail, Phone, MapPin } from 'lucide-react';
+import api from '../utils/api';
 
 const AboutUs: React.FC = () => {
   const [editing, setEditing] = useState(false);
-  const [aboutInfo, setAboutInfo] = useState({
-    companyName: 'Safari Njema Transportation',
-    slogan: 'Your Journey, Our Priority',
-    description: 'Safari Njema is a leading transportation company in Kenya, providing reliable, safe, and comfortable travel services across the country. Established in 2015, we have grown to become one of the most trusted names in the transportation industry, connecting major cities and towns with our fleet of modern buses and shuttles.',
-    mission: 'To provide reliable, safe, and comfortable transportation services that exceed customer expectations while maintaining the highest standards of professionalism and integrity.',
-    vision: 'To be the most preferred transportation service provider in East Africa, known for excellence, innovation, and customer satisfaction.',
-    values: [
-      'Safety First - We prioritize the safety of our passengers and staff above all else.',
-      'Customer Satisfaction - We strive to exceed customer expectations in every interaction.',
-      'Reliability - We are committed to punctuality and dependability in all our services.',
-      'Integrity - We conduct our business with honesty and transparency.',
-      'Innovation - We continuously seek to improve our services through innovation and technology.'
-    ],
+  const [aboutInfo, setAboutInfo] = useState<{
+    companyName: string;
+    slogan: string;
+    description: string;
+    mission: string;
+    vision: string;
+    values: string[];
     contactInfo: {
-      email: 'info@safarinjema.co.ke',
-      phone: '+254 712 345 678',
-      address: 'Moi Avenue, Central Business District, Nairobi, Kenya'
+      email: string;
+      phone: string;
+      address: string;
+    };
+  }>({
+    companyName: '',
+    slogan: '',
+    description: '',
+    mission: '',
+    vision: '',
+    values: [],
+    contactInfo: {
+      email: '',
+      phone: '',
+      address: ''
     }
   });
-  
-  const handleSave = () => {
-    // In a real application, you would save the data to your backend
-    console.log('Saving about info:', aboutInfo);
-    setEditing(false);
+
+  // Fetch about info from backend on mount
+  useEffect(() => {
+    const fetchAboutInfo = async () => {
+      try {
+        const res = await api.get('/api/about');
+        setAboutInfo(res.data);
+      } catch (error) {
+        console.error('Failed to fetch about info:', error);
+      }
+    };
+    fetchAboutInfo();
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      await api.put('/api/about', aboutInfo);
+      setEditing(false);
+    } catch (error) {
+      console.error('Failed to save about info:', error);
+      // Optionally show an error message to the user
+    }
   };
   
   const handleCancel = () => {

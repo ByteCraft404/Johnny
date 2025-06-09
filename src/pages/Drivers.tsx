@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2, RefreshCw } from 'lucide-react';
+import api from '../utils/api';
 
 interface Driver {
   id: number;
@@ -35,16 +36,14 @@ const Drivers: React.FC = () => {
   useEffect(() => {
     const fetchDrivers = async () => {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/drivers', {
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDrivers(data);
-        setDrivers(data);
-      } else {
+      try {
+        const response = await api.get('/api/drivers', {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+        });
+        setDrivers(response.data);
+      } catch {
         // Handle error if needed
       }
     };
@@ -72,15 +71,18 @@ const Drivers: React.FC = () => {
   const confirmDelete = async () => {
     if (driverToDelete) {
       const token = localStorage.getItem('token');
-      await fetch(`http://localhost:3001/api/drivers/${driverToDelete}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-      });
-      setDrivers(drivers.filter((driver: Driver) => driver.id !== driverToDelete));
-      setShowDeleteModal(false);
-      setDriverToDelete(null);
+      try {
+        await api.delete(`/api/drivers/${driverToDelete}`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+          },
+        });
+        setDrivers(drivers.filter((driver: Driver) => driver.id !== driverToDelete));
+        setShowDeleteModal(false);
+        setDriverToDelete(null);
+      } catch {
+        // Optionally handle error
+      }
     }
   };
 
@@ -91,17 +93,19 @@ const Drivers: React.FC = () => {
     const newStatus = driver.status === 'Driving' ? 'Not Driving' : 'Driving';
     const updatedDriver = { ...driver, status: newStatus, route: newStatus === 'Not Driving' ? 'N/A' : driver.route };
     const token = localStorage.getItem('token');
-    const response = await fetch(`http://localhost:3001/api/drivers/${id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-      },
-      body: JSON.stringify(updatedDriver),
-    });
-    if (response.ok) {
-      setDrivers(drivers.map((d) => (d.id === id ? updatedDriver : d)));
-    } else {
+    try {
+      const response = await api.put(`/api/drivers/${id}`, updatedDriver, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      if (response.status === 200) {
+        setDrivers(drivers.map((d) => (d.id === id ? updatedDriver : d)));
+      } else {
+        alert('Failed to update driver status.');
+      }
+    } catch {
       alert('Failed to update driver status.');
     }
   };
@@ -299,21 +303,23 @@ const Drivers: React.FC = () => {
               onSubmit={async (e) => {
                 e.preventDefault();
                 const token = localStorage.getItem('token');
-                const response = await fetch(`http://localhost:3001/api/drivers/${editingDriver.id}`, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : '',
-                  },
-                  body: JSON.stringify(editForm),
-                });
-                if (response.ok) {
-                  const updated = await response.json();
-                  setDrivers(drivers.map((d) => (d.id === updated.id ? updated : d)));
-                  setShowEditModal(false);
-                  setEditingDriver(null);
-                  setEditForm({});
-                } else {
+                try {
+                  const response = await api.put(`/api/drivers/${editingDriver.id}`, editForm, {
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': token ? `Bearer ${token}` : '',
+                    },
+                  });
+                  if (response.status === 200) {
+                    const updated = response.data;
+                    setDrivers(drivers.map((d) => (d.id === updated.id ? updated : d)));
+                    setShowEditModal(false);
+                    setEditingDriver(null);
+                    setEditForm({});
+                  } else {
+                    alert('Failed to update driver.');
+                  }
+                } catch {
                   alert('Failed to update driver.');
                 }
               }}

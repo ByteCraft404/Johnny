@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, Edit, Trash2, RefreshCw } from 'lucide-react';
+import api from '../utils/api';
 
 // Vehicle interface for type safety
 interface Vehicle {
@@ -35,15 +36,12 @@ const Vehicles: React.FC = () => {
     useEffect(() => {
         const fetchVehicles = async () => {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:3001/api/vehicles', {
+            const response = await api.get('/api/vehicles', {
                 headers: {
                     Authorization: token ? `Bearer ${token}` : '',
                 },
             });
-            if (response.ok) {
-                const data = await response.json();
-                setVehicles(data);
-            }
+            setVehicles(response.data);
         };
         fetchVehicles();
     }, []);
@@ -51,15 +49,12 @@ const Vehicles: React.FC = () => {
     useEffect(() => {
         const fetchDrivers = async () => {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:3001/api/drivers', {
+            const response = await api.get('/api/drivers', {
                 headers: {
                     Authorization: token ? `Bearer ${token}` : '',
                 },
             });
-            if (response.ok) {
-                const data = await response.json();
-                setDrivers(data);
-            }
+            setDrivers(response.data);
         };
         fetchDrivers();
     }, []);
@@ -67,15 +62,12 @@ const Vehicles: React.FC = () => {
     useEffect(() => {
         const fetchRoutes = async () => {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://localhost:3001/api/routes', {
+            const response = await api.get('/api/routes', {
                 headers: {
                     Authorization: token ? `Bearer ${token}` : '',
                 },
             });
-            if (response.ok) {
-                const data = await response.json();
-                setRoutes(data);
-            }
+            setRoutes(response.data);
         };
         fetchRoutes();
     }, []);
@@ -98,19 +90,14 @@ const Vehicles: React.FC = () => {
     const confirmDelete = async () => {
         if (vehicleToDelete) {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://localhost:3001/api/vehicles/${vehicleToDelete}`, {
-                method: 'DELETE',
+            await api.delete(`/api/vehicles/${vehicleToDelete}`, {
                 headers: {
-                    'Authorization': token ? `Bearer ${token}` : '',
+                    Authorization: token ? `Bearer ${token}` : '',
                 },
             });
-            if (response.ok) {
-                setVehicles(vehicles.filter(vehicle => vehicle.id !== vehicleToDelete));
-                setShowDeleteModal(false);
-                setVehicleToDelete(null);
-            } else {
-                alert('Failed to delete vehicle.');
-            }
+            setVehicles(vehicles.filter(vehicle => vehicle.id !== vehicleToDelete));
+            setShowDeleteModal(false);
+            setVehicleToDelete(null);
         }
     };
 
@@ -124,23 +111,17 @@ const Vehicles: React.FC = () => {
         e.preventDefault();
         if (!editingVehicle) return;
         const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:3001/api/vehicles/${editingVehicle.id}`, {
-            method: 'PUT',
+        const response = await api.put(`/api/vehicles/${editingVehicle.id}`, editForm, {
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: token ? `Bearer ${token}` : '',
             },
-            body: JSON.stringify(editForm),
         });
-        if (response.ok) {
-            const updated = await response.json();
-            setVehicles(vehicles.map((v) => (v.id === updated.id ? updated : v)));
-            setShowEditModal(false);
-            setEditingVehicle(null);
-            setEditForm({});
-        } else {
-            alert('Failed to update vehicle.');
-        }
+        const updated = response.data;
+        setVehicles(vehicles.map((v) => (v.id === updated.id ? updated : v)));
+        setShowEditModal(false);
+        setEditingVehicle(null);
+        setEditForm({});
     };
 
     // Change status logic
@@ -155,13 +136,11 @@ const Vehicles: React.FC = () => {
 
         const token = localStorage.getItem('token');
         // Update vehicle status
-        const response = await fetch(`http://localhost:3001/api/vehicles/${vehicle.id}`, {
-            method: 'PUT',
+        const response = await api.put(`/api/vehicles/${vehicle.id}`, updatedVehicle, {
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : '',
+                Authorization: token ? `Bearer ${token}` : '',
             },
-            body: JSON.stringify(updatedVehicle),
         });
 
         // Update driver status if driver exists
@@ -169,23 +148,16 @@ const Vehicles: React.FC = () => {
         const driver = drivers.find(d => d.name === driverName);
         if (driver) {
             const driverStatus = nextStatus === 'In Service' ? 'Driving' : 'Not Driving';
-            await fetch(`http://localhost:3001/api/drivers/${driver.id}`, {
-                method: 'PUT',
+            await api.put(`/api/drivers/${driver.id}`, { status: driverStatus }, {
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': token ? `Bearer ${token}` : '',
+                    Authorization: token ? `Bearer ${token}` : '',
                 },
-                body: JSON.stringify({ status: driverStatus }),
             });
         }
 
-        if (response.ok) {
-            const updated = await response.json();
-            setVehicles(vehicles.map(v => v.id === updated.id ? updated : v));
-            // Optionally refresh drivers state here if you want instant UI update
-        } else {
-            alert('Failed to update status.');
-        }
+        const updated = response.data;
+        setVehicles(vehicles.map(v => v.id === updated.id ? updated : v));
     };
 
     return (

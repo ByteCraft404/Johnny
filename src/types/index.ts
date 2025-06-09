@@ -77,3 +77,16 @@ export interface Customer {
   idNumber: string;
   createdAt: string;
 }
+
+export interface Route {
+  id: string;
+  name: string;
+  distance: string;
+  duration: string;
+  fare: string;
+  stops: string[];
+  schedules: number;
+  active: boolean;
+  startTime: string;
+  arrivalTime: string;
+}

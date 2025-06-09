@@ -1,8 +1,20 @@
 import React, { useState } from 'react';
 import { Search, Mail, Phone, MessageSquare, Filter, X } from 'lucide-react';
+import api from '../utils/api';
+
+// User type definition
+type User = {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  bookings: number;
+  lastBooking: string;
+  status: string;
+};
 
 // Sample user data
-const initialUsers = [
+const initialUsers: User[] = [
   {
     id: 1,
     name: 'John Mwangi',
@@ -51,53 +63,56 @@ const initialUsers = [
 ];
 
 const ContactUsers: React.FC = () => {
-  const [users, setUsers] = useState(initialUsers);
+  const [users] = useState(initialUsers);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showContactModal, setShowContactModal] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [contactMethod, setContactMethod] = useState('email');
   const [message, setMessage] = useState('');
-  
+
   // Filter users based on search query and status filter
   const filteredUsers = users.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          user.phone.includes(searchQuery);
+      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.phone.includes(searchQuery);
     const matchesStatus = statusFilter === 'All' || user.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-  
-  const handleContactClick = (user: any) => {
+
+  const handleContactClick = (user: User) => {
     setSelectedUser(user);
     setShowContactModal(true);
     setMessage(''); // Reset message when opening modal
   };
-  
-  const handleSendMessage = () => {
+
+  const handleSendMessage = async () => {
     if (!message.trim()) {
       alert('Please enter a message');
       return;
     }
-    
-    // In a real application, you would send the message using the selected method
-    console.log('Sending message to:', selectedUser);
-    console.log('Method:', contactMethod);
-    console.log('Message:', message);
-    
-    // Close the modal
+
+    try {
+      // Example API call to send a message (adjust endpoint as needed)
+      await api.post('/api/messages', {
+        userId: selectedUser?.id,
+        method: contactMethod,
+        message,
+      });
+      alert(`Message sent to ${selectedUser?.name} via ${contactMethod}`);
+    } catch {
+      alert('Failed to send message');
+    }
+
     setShowContactModal(false);
     setSelectedUser(null);
-    
-    // Show success message
-    alert(`Message sent to ${selectedUser.name} via ${contactMethod}`);
   };
-  
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-md p-6">
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Contact Users</h1>
-        
+
         <div className="flex flex-col md:flex-row md:items-center mb-6 space-y-4 md:space-y-0">
           <div className="relative flex-grow md:mr-4">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -111,7 +126,7 @@ const ContactUsers: React.FC = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          
+
           <div className="flex-shrink-0 flex items-center">
             <Filter size={18} className="text-gray-400 mr-2" />
             <select
@@ -125,7 +140,7 @@ const ContactUsers: React.FC = () => {
             </select>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -172,15 +187,15 @@ const ContactUsers: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.status === 'Active' 
-                        ? 'bg-green-100 text-green-800' 
+                      user.status === 'Active'
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-red-100 text-red-800'
                     }`}>
                       {user.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button 
+                    <button
                       onClick={() => handleContactClick(user)}
                       className="text-teal-600 hover:text-teal-900 bg-teal-50 px-3 py-1 rounded-md flex items-center"
                     >
@@ -193,14 +208,14 @@ const ContactUsers: React.FC = () => {
             </tbody>
           </table>
         </div>
-        
+
         {filteredUsers.length === 0 && (
           <div className="text-center py-10">
             <p className="text-gray-500">No users found matching your criteria.</p>
           </div>
         )}
       </div>
-      
+
       {/* Contact User Modal */}
       {showContactModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -209,25 +224,25 @@ const ContactUsers: React.FC = () => {
               <h3 className="text-lg font-medium text-gray-900">
                 Contact {selectedUser.name}
               </h3>
-              <button 
+              <button
                 onClick={() => setShowContactModal(false)}
                 className="text-gray-400 hover:text-gray-500 focus:outline-none"
               >
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="mb-6">
               <p className="text-sm text-gray-600 mb-4">
                 Choose how you'd like to contact this user:
               </p>
-              
+
               <div className="flex space-x-3 mb-4">
                 <button
                   onClick={() => setContactMethod('email')}
                   className={`flex-1 py-2 px-3 rounded-md flex items-center justify-center ${
-                    contactMethod === 'email' 
-                      ? 'bg-teal-600 text-white' 
+                    contactMethod === 'email'
+                      ? 'bg-teal-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -237,8 +252,8 @@ const ContactUsers: React.FC = () => {
                 <button
                   onClick={() => setContactMethod('sms')}
                   className={`flex-1 py-2 px-3 rounded-md flex items-center justify-center ${
-                    contactMethod === 'sms' 
-                      ? 'bg-teal-600 text-white' 
+                    contactMethod === 'sms'
+                      ? 'bg-teal-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -248,8 +263,8 @@ const ContactUsers: React.FC = () => {
                 <button
                   onClick={() => setContactMethod('call')}
                   className={`flex-1 py-2 px-3 rounded-md flex items-center justify-center ${
-                    contactMethod === 'call' 
-                      ? 'bg-teal-600 text-white' 
+                    contactMethod === 'call'
+                      ? 'bg-teal-600 text-white'
                       : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                   }`}
                 >
@@ -257,7 +272,7 @@ const ContactUsers: React.FC = () => {
                   Call
                 </button>
               </div>
-              
+
               {contactMethod === 'call' ? (
                 <div className="text-center py-4">
                   <Phone size={24} className="mx-auto text-teal-600 mb-2" />
@@ -281,7 +296,7 @@ const ContactUsers: React.FC = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowContactModal(false)}

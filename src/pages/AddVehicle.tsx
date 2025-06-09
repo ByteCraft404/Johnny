@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import api from '../utils/api';
 
 const AddVehicle: React.FC = () => {
   const navigate = useNavigate();
@@ -29,14 +30,15 @@ const AddVehicle: React.FC = () => {
   useEffect(() => {
     const fetchDrivers = async () => {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/drivers', {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : '',
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDrivers(data);
+      try {
+        const response = await api.get('/api/drivers', {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : '',
+          },
+        });
+        setDrivers(response.data);
+      } catch {
+        // Optionally handle error
       }
     };
     fetchDrivers();
@@ -48,12 +50,14 @@ const AddVehicle: React.FC = () => {
   useEffect(() => {
     const fetchRoutes = async () => {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3001/api/routes', {
-        headers: { Authorization: token ? `Bearer ${token}` : '' },
-      });
-      if (response.ok) {
-        const data: Route[] = await response.json();
+      try {
+        const response = await api.get('/api/routes', {
+          headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        const data: Route[] = response.data;
         setRoutes(data.filter((r: Route) => r.active));
+      } catch {
+        // Optionally handle error
       }
     };
     fetchRoutes();
@@ -90,17 +94,15 @@ const AddVehicle: React.FC = () => {
       ...formData,
       imageUrl: vehicleImage,
     };
-    const response = await fetch('http://localhost:3001/api/vehicles', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: token ? `Bearer ${token}` : '',
-      },
-      body: JSON.stringify(vehicleData),
-    });
-    if (response.ok) {
+    try {
+      await api.post('/api/vehicles', vehicleData, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+      });
       navigate('/vehicles');
-    } else {
+    } catch {
       alert('Failed to add vehicle');
     }
   };

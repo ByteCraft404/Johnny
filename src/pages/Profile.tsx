@@ -1,6 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { UserContext } from '../context/UserContext';
 import { Upload, Lock, Mail, User, Shield, Save } from 'lucide-react';
+import api from '../utils/api';
 
 const Profile: React.FC = () => {
   const { user, setUser } = useContext(UserContext);
@@ -42,22 +43,29 @@ const Profile: React.FC = () => {
     }
   };
 
-  const handleSaveProfile = () => {
-    // Update context and localStorage with new values
+  const handleSaveProfile = async () => {
     const updatedUser = {
       ...user,
       name: userInfo.name,
       email: userInfo.email,
       avatar: profileImage,
       role: userInfo.role,
-      // Optionally add department if you want to persist it
       department: userInfo.department,
     };
-    setUser(updatedUser);
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-
-    // In a real app, you would save these changes to your backend
-    setEditMode(false);
+    try {
+      const token = localStorage.getItem('token');
+      await api.put('/api/profile', updatedUser, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+        },
+      });
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setEditMode(false);
+    } catch {
+      alert('Failed to save profile');
+    }
   };
 
   return (
