@@ -1,58 +1,74 @@
-import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import api from '../utils/api';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import api from "../utils/api";
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: ''
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
+      setError("Passwords do not match");
       return;
     }
 
-    try {
-      const response = await api.post('/api/auth/register', formData, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+    // Exclude confirmPassword from payload
+    const { name, email, password } = formData;
+    const payload = { name, email, password };
 
+    try {
+      const response = await api.post("/auth/signup", payload);
       const data = response.data;
 
       if (response.status === 201 || response.status === 200) {
-        localStorage.setItem('user', JSON.stringify({
-          name: data.name,
-          email: data.email,
-          avatar: data.avatar || '',
-          role: data.role,
-          department: data.department || 'Administration',
-        }));
-        navigate('/login');
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            name: data.name,
+            email: data.email,
+            avatar: data.avatar || "",
+            role: data.role,
+            department: data.department || "Administration",
+          })
+        );
+        navigate("/login");
       } else {
-        setError(data.message || 'Registration failed');
+        setError(data.message || "Registration failed");
       }
     } catch (err: unknown) {
-      if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data) {
-        setError((err as { response: { data: { message: string } } }).response.data.message);
+      if (
+        err &&
+        typeof err === "object" &&
+        "response" in err &&
+        err.response &&
+        typeof err.response === "object" &&
+        "data" in err.response &&
+        (err.response as { data?: unknown }).data &&
+        typeof (err.response as { data?: unknown }).data === "object" &&
+        "message" in ((err.response as { data?: { message?: unknown } }).data || {})
+      ) {
+        setError(
+          String(
+            ((err.response as { data?: { message?: unknown } }).data as { message?: unknown })?.message
+          )
+        );
       } else {
-        setError('Failed to connect to server');
+        setError("Failed to connect to server");
       }
     }
   };
@@ -60,17 +76,22 @@ const Register: React.FC = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">Create an Account</h2>
-        
+        <h2 className="text-2xl font-bold text-center text-gray-800 mb-8">
+          Create an Account
+        </h2>
+
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="name"
+              className="block text-sm font-medium text-gray-700"
+            >
               Full Name
             </label>
             <input
@@ -83,9 +104,12 @@ const Register: React.FC = () => {
               className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
             />
           </div>
-          
+
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
               Email Address
             </label>
             <input
@@ -98,9 +122,12 @@ const Register: React.FC = () => {
               className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
             />
           </div>
-          
+
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
               Password
             </label>
             <input
@@ -113,9 +140,12 @@ const Register: React.FC = () => {
               className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
             />
           </div>
-          
+
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+            <label
+              htmlFor="confirmPassword"
+              className="block text-sm font-medium text-gray-700"
+            >
               Confirm Password
             </label>
             <input
@@ -128,7 +158,7 @@ const Register: React.FC = () => {
               className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
             />
           </div>
-          
+
           <div>
             <button
               type="submit"
@@ -138,11 +168,14 @@ const Register: React.FC = () => {
             </button>
           </div>
         </form>
-        
+
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
-            Already have an account?{' '}
-            <Link to="/login" className="font-medium text-teal-600 hover:text-teal-500">
+            Already have an account?{" "}
+            <Link
+              to="/login"
+              className="font-medium text-teal-600 hover:text-teal-500"
+            >
               Sign in here
             </Link>
           </p>
