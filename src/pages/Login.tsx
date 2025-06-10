@@ -31,21 +31,28 @@ const Login: React.FC = () => {
       const data = response.data;
 
       if (response.status === 200) {
-        localStorage.setItem('user', JSON.stringify({
+        // *** CRITICAL CHANGES HERE: Using sessionStorage for both user data and token ***
+        sessionStorage.setItem('user', JSON.stringify({
           name: data.name,
           email: data.email,
           avatar: data.avatar || '',
           role: data.role,
           department: data.department || 'Administration',
         }));
+        
+        sessionStorage.setItem('token', data.token); // <--- Changed from localStorage to sessionStorage
+
+        // Update UserContext state
+        // Ensure 'department' is also passed to setUser for immediate context update
         setUser({
           name: data.name,
           email: data.email,
           avatar: data.avatar || '',
           role: data.role,
+          department: data.department || 'Administration', // <--- Ensure department is passed here
         });
-        localStorage.setItem('token', data.token);
-        navigate('/');
+        
+        navigate('/'); // Navigate to the home/dashboard route
       } else {
         setError(data.message || 'Login failed');
       }

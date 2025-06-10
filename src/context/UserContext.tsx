@@ -24,18 +24,35 @@ export const UserContext = createContext<UserContextType>({
 });
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState({
+  // Initialize state with default empty values
+  const [user, setUser] = useState<User>({
     name: '',
     email: '',
     avatar: '',
     role: '',
+    department: '', // Initialize department as well
   });
 
   useEffect(() => {
-    // Load user from localStorage or backend after login
-    const storedUser = localStorage.getItem('user');
+    // Load user from sessionStorage after component mounts
+    // This makes user data session-specific, clearing on tab/browser close
+    const storedUser = sessionStorage.getItem('user'); // <-- Changed to sessionStorage
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        // Ensure all properties match the User interface, provide defaults if missing
+        setUser({
+          name: parsedUser.name || '',
+          email: parsedUser.email || '',
+          avatar: parsedUser.avatar || '',
+          role: parsedUser.role || '',
+          department: parsedUser.department || '', // Ensure department is parsed/defaulted
+        });
+      } catch (error) {
+        console.error("Failed to parse user from sessionStorage:", error);
+        // Clear invalid data if parsing fails
+        sessionStorage.removeItem('user');
+      }
     }
   }, []);
 
