@@ -31,22 +31,27 @@ const Login: React.FC = () => {
       const data = response.data;
 
       if (response.status === 200) {
-        localStorage.setItem('user', JSON.stringify({
-          name: data.name,
-          email: data.email,
-          avatar: data.avatar || '',
-          role: data.role,
-          department: data.department || 'Administration',
-        }));
-        setUser({
-          name: data.name,
-          email: data.email,
-          avatar: data.avatar || '',
-          role: data.role,
-        });
-        localStorage.setItem('token', data.token);
-        navigate('/');
-      } else {
+      
+          localStorage.setItem('user', JSON.stringify({
+           name: data.name,
+           email: data.email,
+           avatar: data.avatar || '',
+           role: data.role,
+           department: data.department || 'Administration', // <-- Include department here
+      }));
+      
+      // Update UserContext state with ALL user data
+      setUser({
+           name: data.name,
+           email: data.email,
+           avatar: data.avatar || '',
+           role: data.role,
+           department: data.department || 'Administration', // <-- ADD THIS LINE
+      });
+      
+      localStorage.setItem('token', data.token);
+      navigate('/');
+    } else {
         setError(data.message || 'Login failed');
       }
     } catch (err: unknown) {
