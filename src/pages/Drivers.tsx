@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Plus, Search, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import api from '../utils/api';
 
 interface Driver {
-  id: number;
+  id: string; // <-- was number
   name: string;
   gender?: string;
   age?: number;
   vehicleReg?: string;
   vehicleType?: string;
-  status: 'Driving' | 'Not Driving' | string;
+  status: 'Active' | 'Inactive' | string; // Match backend
   route?: string;
   phone?: string;
   profileImage?: string;
@@ -19,6 +19,7 @@ interface Driver {
   licenseNumber?: string;
   licenseExpiry?: string;
   experience?: string;
+  assignedVehicle?: string; // Added property
 }
 
 const Drivers: React.FC = () => {
@@ -27,31 +28,91 @@ const Drivers: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [driverToDelete, setDriverToDelete] = useState<number | null>(null);
+  const [driverToDelete, setDriverToDelete] = useState<string | null>(null);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [editForm, setEditForm] = useState<Partial<Driver>>({});
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsDriver, setDetailsDriver] = useState<Driver | null>(null);
+
+  interface Vehicle {
+    id: string;
+    regNumber: string;
+    type: string;
+    status: string;
+    route?: string; // <-- Add this line
+    [key: string]: unknown;
+  }
+    const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
+  interface Route {
+    id: string;
+    name: string;
+    startTime?: string;
+    arrivalTime?: string;
+    // add other fields as needed
+  }
+  const [routes, setRoutes] = useState<Route[]>([]);
 
   // --- Fetch Drivers (Polling) ---
-  useEffect(() => {
-    const fetchDrivers = async () => {
-      const token = localStorage.getItem('token');
-      try {
-        const response = await api.get('/api/drivers', {
-          headers: {
-            'Authorization': token ? `Bearer ${token}` : '',
-          },
-        });
-        setDrivers(response.data);
-      } catch {
-        // Handle error if needed
-      }
-    };
+  const fetchDrivers = async () => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/api/drivers', {
+      headers: { Authorization: token ? `Bearer ${token}` : '' },
+    });
+    setDrivers(
+      (response.data as (Omit<Driver, 'id'> & { _id: string })[]).map((driver) => ({
+        ...driver,
+        id: driver._id,
+      }))
+    );
+  };
 
+  useEffect(() => {
     fetchDrivers();
     const interval = setInterval(fetchDrivers, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // --- Fetch Vehicles ---
+  const fetchVehicles = React.useCallback(async () => {
+  const token = localStorage.getItem('token');
+  const response = await api.get('/api/vehicles', {
+    headers: { Authorization: token ? `Bearer ${token}` : '' },
+  });
+  setVehicles(
+    (response.data as (Omit<Vehicle, 'id'> & { _id: string })[]).map((vehicle) => ({
+      id: String(vehicle._id),
+      regNumber: String(vehicle.regNumber ?? ""),
+      type: String(vehicle.type ?? ""),
+      status: String(vehicle.status ?? ""),
+      // Safely check if 'route' is a string; otherwise, assign undefined
+      route: typeof vehicle.route === 'string' ? vehicle.route : undefined,
+    }))
+  );
+}, []);
+
+  useEffect(() => {
+    fetchVehicles();
+  }, [fetchVehicles]);
+
+  // --- Fetch Routes ---
+  const fetchRoutes = React.useCallback(async () => {
+    const token = localStorage.getItem('token');
+    const response = await api.get('/api/routes', {
+      headers: { Authorization: token ? `Bearer ${token}` : '' },
+    });
+    setRoutes(
+      (response.data as (Omit<Route, 'id'> & { _id: string })[]).map((route) => ({
+        ...route,
+        id: route._id,
+      }))
+    );
+  }, []);
+
+  useEffect(() => {
+    fetchRoutes();
+  }, [fetchRoutes]);
 
   // --- Filtering Logic ---
   const filteredDrivers = drivers.filter((driver: Driver) => {
@@ -63,7 +124,7 @@ const Drivers: React.FC = () => {
   });
 
   // --- Delete Logic ---
-  const handleDeleteClick = (id: number) => {
+  const handleDeleteClick = (id: string) => {
     setDriverToDelete(id);
     setShowDeleteModal(true);
   };
@@ -87,33 +148,53 @@ const Drivers: React.FC = () => {
   };
 
   // --- Status Change Logic ---
-  const changeDriverStatus = async (id: number) => {
-    const driver = drivers.find((d) => d.id === id);
-    if (!driver) return;
-    const newStatus = driver.status === 'Driving' ? 'Not Driving' : 'Driving';
-    const updatedDriver = { ...driver, status: newStatus, route: newStatus === 'Not Driving' ? 'N/A' : driver.route };
+  // (Removed unused changeDriverStatus function)
+
+  // --- Edit Form Change Handler ---
+  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+
+    if (name === "assignedVehicle") {
+      // Find the selected vehicle object
+      const selectedVehicle = vehicles.find(v => v.id === value);
+      setEditForm(prev => ({
+              ...prev,
+              assignedVehicle: value,
+              vehicleReg: selectedVehicle ? selectedVehicle.regNumber : "",
+              vehicleType: selectedVehicle && typeof selectedVehicle.type === "string" ? selectedVehicle.type : "",
+            }));
+    } else {
+      setEditForm(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  // --- Edit Form Submit Handler ---
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDriver) {
+      alert('No driver selected for editing.');
+      return;
+    }
     const token = localStorage.getItem('token');
     try {
-      const response = await api.put(`/api/drivers/${id}`, updatedDriver, {
+      const response = await api.put(`/api/drivers/${editingDriver.id}`, editForm, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': token ? `Bearer ${token}` : '',
         },
       });
       if (response.status === 200) {
-        setDrivers(drivers.map((d) => (d.id === id ? updatedDriver : d)));
+        await fetchDrivers();
+        await fetchVehicles();
+        setShowEditModal(false);
+        setEditingDriver(null);
+        setEditForm({});
       } else {
-        alert('Failed to update driver status.');
+        alert('Failed to update driver.');
       }
     } catch {
-      alert('Failed to update driver status.');
+      alert('Failed to update driver.');
     }
-  };
-
-  // --- Edit Form Change Handler ---
-  const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setEditForm((prev) => ({ ...prev, [name]: value }));
   };
 
   // --- Main Render ---
@@ -153,8 +234,8 @@ const Drivers: React.FC = () => {
               onChange={(e) => setStatusFilter(e.target.value)}
             >
               <option value="All">All Statuses</option>
-              <option value="Driving">Driving</option>
-              <option value="Not Driving">Not Driving</option>
+              <option value="Active">Active</option>
+              <option value="Inactive">Inactive</option>
             </select>
           </div>
         </div>
@@ -192,7 +273,13 @@ const Drivers: React.FC = () => {
                       <div className="flex-shrink-0 h-10 w-10">
                         <img
                           className="h-10 w-10 rounded-full object-cover"
-                          src={driver.profileImage || driver.photo || 'https://via.placeholder.com/100'}
+                          src={
+                            driver.profileImage
+                              ? driver.profileImage.startsWith('data:image')
+                                ? driver.profileImage
+                                : `data:image/png;base64,${driver.profileImage}`
+                              : driver.photo || 'https://via.placeholder.com/100'
+                          }
                           alt={driver.name}
                         />
                       </div>
@@ -208,27 +295,37 @@ const Drivers: React.FC = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      driver.status === 'Driving' 
-                        ? 'bg-green-100 text-green-800' 
+                      driver.status === 'Active'
+                        ? 'bg-green-100 text-green-800'
                         : 'bg-gray-100 text-gray-800'
                     }`}>
                       {driver.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {driver.route}
+                    {
+                      (() => {
+                        const vehicle = vehicles.find(v => v.regNumber === driver.vehicleReg);
+                        if (!vehicle) return "";
+                        const route = routes.find(r => r.id === vehicle.route || r.name === vehicle.route);
+                        return route ? route.name : "";
+                      })()
+                    }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {driver.phone}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <button 
-                        onClick={() => changeDriverStatus(driver.id)}
+                      <button
                         className="text-blue-600 hover:text-blue-900"
-                        title={driver.status === 'Driving' ? 'Mark as Not Driving' : 'Mark as Driving'}
+                        title="View Details"
+                        onClick={() => {
+                          setDetailsDriver(driver);
+                          setShowDetailsModal(true);
+                        }}
                       >
-                        <RefreshCw size={18} />
+                        Details
                       </button>
                       <button 
                         className="text-teal-600 hover:text-teal-900"
@@ -300,29 +397,7 @@ const Drivers: React.FC = () => {
               <Edit className="inline-block" /> Edit Driver
             </h3>
             <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                const token = localStorage.getItem('token');
-                try {
-                  const response = await api.put(`/api/drivers/${editingDriver.id}`, editForm, {
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': token ? `Bearer ${token}` : '',
-                    },
-                  });
-                  if (response.status === 200) {
-                    const updated = response.data;
-                    setDrivers(drivers.map((d) => (d.id === updated.id ? updated : d)));
-                    setShowEditModal(false);
-                    setEditingDriver(null);
-                    setEditForm({});
-                  } else {
-                    alert('Failed to update driver.');
-                  }
-                } catch {
-                  alert('Failed to update driver.');
-                }
-              }}
+              onSubmit={handleEditSubmit}
               className="space-y-6"
             >
               <div className="flex items-center gap-6 mb-4">
@@ -423,6 +498,7 @@ const Drivers: React.FC = () => {
                     value={editForm.vehicleReg || ''}
                     name="vehicleReg"
                     onChange={handleEditChange}
+                    readOnly
                   />
                 </div>
                 <div>
@@ -432,6 +508,7 @@ const Drivers: React.FC = () => {
                     value={editForm.vehicleType || ''}
                     name="vehicleType"
                     onChange={handleEditChange}
+                    readOnly
                   />
                 </div>
                 <div>
@@ -462,6 +539,25 @@ const Drivers: React.FC = () => {
                     onChange={handleEditChange}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Vehicle</label>
+                  <select
+                    name="assignedVehicle"
+                    value={editForm.assignedVehicle || ''}
+                    onChange={handleEditChange}
+                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-teal-500 focus:border-teal-500 sm:text-sm rounded-md"
+                  >
+                    <option value="">Select a vehicle</option>
+                    {vehicles
+                      .filter(vehicle =>
+                        // Show vehicles not In Service, or the currently assigned vehicle
+                        vehicle.status !== "In Service" || vehicle.id === editForm.assignedVehicle
+                      )
+                      .map(vehicle => (
+                        <option key={vehicle.id} value={vehicle.id}>{vehicle.regNumber}</option>
+                      ))}
+                  </select>
+                </div>
               </div>
               <div className="flex justify-end space-x-3 mt-6">
                 <button
@@ -479,6 +575,99 @@ const Drivers: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- Driver Details Modal --- */}
+      {showDetailsModal && detailsDriver && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-all duration-300">
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-3xl mx-auto animate-fade-in"
+            style={{ maxHeight: '90vh', overflowY: 'auto' }}
+          >
+            <h3 className="text-2xl font-bold text-teal-700 mb-6 flex items-center gap-2">
+              <Edit className="inline-block" /> Driver Details
+            </h3>
+            <div className="flex items-center gap-6 mb-4">
+              <div className="relative">
+                <img
+                  src={detailsDriver.profileImage || 'https://via.placeholder.com/100'}
+                  alt="Profile"
+                  className="h-24 w-24 rounded-full object-cover border-4 border-teal-200 shadow transition-all duration-300"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.name || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.age || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.gender || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.phone || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.email || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Registration</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.vehicleReg || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Type</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.vehicleType || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">License Number</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.licenseNumber || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">License Expiry Date</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.licenseExpiry || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Years of Experience</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.experience || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <input className="w-full border rounded px-3 py-2 bg-gray-100" value={detailsDriver.status || ''} readOnly />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Route</label>
+                <input
+                  className="w-full border rounded px-3 py-2 bg-gray-100"
+                  value={
+                    (() => {
+                      const vehicle = vehicles.find(v => v.regNumber === detailsDriver.vehicleReg);
+                      if (!vehicle) return "";
+                      const route = routes.find(r => r.id === vehicle.route || r.name === vehicle.route);
+                      return route ? route.name : "";
+                    })()
+                  }
+                  readOnly
+                />
+              </div>
+            </div>
+            <div className="flex justify-end space-x-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setShowDetailsModal(false)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

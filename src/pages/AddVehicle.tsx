@@ -3,10 +3,19 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import api from '../utils/api';
 
+// Define the Route type once, and use it everywhere
+type RouteType = {
+  id: string;
+  name: string;
+  startTime: string;
+  arrivalTime: string;
+  active: boolean;
+};
+
 const AddVehicle: React.FC = () => {
   const navigate = useNavigate();
   const [drivers, setDrivers] = useState<{ id: number; name: string }[]>([]);
-  const [routes, setRoutes] = useState<{ id: number; name: string; active: boolean }[]>([]);
+  const [routes, setRoutes] = useState<RouteType[]>([]);
   const [formData, setFormData] = useState({
     regNumber: '',
     type: '',
@@ -24,6 +33,10 @@ const AddVehicle: React.FC = () => {
     tv: false,
     refreshments: false,
     route: '',
+    departureTime: '',
+    arrivalTime: '',
+    status: '',
+    lastMaintenance: '',
   });
   const [vehicleImage, setVehicleImage] = useState<string>('');
 
@@ -44,9 +57,6 @@ const AddVehicle: React.FC = () => {
     fetchDrivers();
   }, []);
 
-  // Define a type for route objects
-  type Route = { id: number; name: string; active: boolean };
-
   useEffect(() => {
     const fetchRoutes = async () => {
       const token = localStorage.getItem('token');
@@ -54,8 +64,17 @@ const AddVehicle: React.FC = () => {
         const response = await api.get('/api/routes', {
           headers: { Authorization: token ? `Bearer ${token}` : '' },
         });
-        const data: Route[] = response.data;
-        setRoutes(data.filter((r: Route) => r.active));
+        setRoutes(
+          response.data
+            .filter((r: RouteType) => r.active)
+            .map((r: RouteType) => ({
+              id: r.id,
+              name: r.name,
+              startTime: r.startTime,
+              arrivalTime: r.arrivalTime,
+              active: r.active,
+            }))
+        );
       } catch {
         // Optionally handle error
       }
@@ -63,17 +82,29 @@ const AddVehicle: React.FC = () => {
     fetchRoutes();
   }, []);
 
+  // When route changes, auto-fill departure and arrival time
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === 'checkbox'
-          ? (e.target as HTMLInputElement).checked
-          : value,
-    }));
+
+    if (name === "route") {
+      const selectedRoute = routes.find(r => r.name === value);
+      setFormData(prev => ({
+        ...prev,
+        route: value,
+        departureTime: selectedRoute?.startTime || "",
+        arrivalTime: selectedRoute?.arrivalTime || "",
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]:
+          type === 'checkbox'
+            ? (e.target as HTMLInputElement).checked
+            : value,
+      }));
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -312,6 +343,19 @@ const AddVehicle: React.FC = () => {
                 />
               </div>
               <div>
+                <label htmlFor="lastMaintenance" className="block text-sm font-medium text-gray-700 mb-1">
+                  Last Maintenance Date
+                </label>
+                <input
+                  type="date"
+                  id="lastMaintenance"
+                  name="lastMaintenance"
+                  value={formData.lastMaintenance}
+                  onChange={handleChange}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                />
+              </div>
+              <div>
                 <label htmlFor="assignedDriver" className="block text-sm font-medium text-gray-700 mb-1">
                   Assigned Driver (Optional)
                 </label>
@@ -407,6 +451,50 @@ const AddVehicle: React.FC = () => {
                     </label>
                   </div>
                 </div>
+              </div>
+              <div>
+                <label htmlFor="departureTime" className="block text-sm font-medium text-gray-700 mb-1">
+                  Departure Time
+                </label>
+                <input
+                  type="time"
+                  id="departureTime"
+                  name="departureTime"
+                  value={formData.departureTime}
+                  onChange={handleChange}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="arrivalTime" className="block text-sm font-medium text-gray-700 mb-1">
+                  Arrival Time
+                </label>
+                <input
+                  type="time"
+                  id="arrivalTime"
+                  name="arrivalTime"
+                  value={formData.arrivalTime}
+                  onChange={handleChange}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                  Status
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-teal-500 focus:border-teal-500 sm:text-sm"
+                  required
+                >
+                  <option value="">Select Status</option>
+                  <option value="In Service">In Service</option>
+                  <option value="Available">Available</option>
+                  <option value="Maintenance">Maintenance</option>
+                </select>
               </div>
             </div>
           </div>

@@ -3,7 +3,7 @@ import { Plus, Search, Edit, Trash2, MapPin } from 'lucide-react';
 import api from '../utils/api';
 
 interface Route {
-  id: number;
+  id: string; // <-- was number
   name: string;
   distance: string;
   duration: string;
@@ -21,7 +21,7 @@ const Routes: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [routeToDelete, setRouteToDelete] = useState<number | null>(null);
+  const [routeToDelete, setRouteToDelete] = useState<string | null>(null);
   const [editingRoute, setEditingRoute] = useState<Route | null>(null);
   const [newRoute, setNewRoute] = useState({
     name: '',
@@ -41,7 +41,12 @@ const Routes: React.FC = () => {
         const response = await api.get('/api/routes', {
           headers: { Authorization: token ? `Bearer ${token}` : '' },
         });
-        setRoutes(response.data);
+        setRoutes(
+          response.data.map((route: Route & { _id: string }) => ({
+            ...route,
+            id: route._id, // Map MongoDB _id to id
+          }))
+        );
       } catch {
         // Optionally handle error
       }
@@ -108,7 +113,7 @@ const Routes: React.FC = () => {
       const response = await api.put(`/api/routes/${editingRoute.id}`, updatedRoute, {
         headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
       });
-      const saved = response.data;
+      const saved = { ...response.data, id: response.data._id };
       setRoutes(routes.map(r => r.id === saved.id ? saved : r));
       setShowEditModal(false);
       setEditingRoute(null);
@@ -118,7 +123,7 @@ const Routes: React.FC = () => {
   };
 
   // Delete Route
-  const handleDeleteClick = (id: number) => {
+  const handleDeleteClick = (id: string) => {
     setRouteToDelete(id);
     setShowDeleteModal(true);
   };
@@ -140,15 +145,15 @@ const Routes: React.FC = () => {
   };
 
   // Toggle Route Status
-  const toggleRouteStatus = async (id: number) => {
+  const toggleRouteStatus = async (id: string) => {
     const route = routes.find(r => r.id === id);
     if (!route) return;
     const token = localStorage.getItem('token');
     try {
-      const response = await api.put(`/api/routes/${id}`, { ...route, active: !route.active }, {
+      const response = await api.patch(`/api/routes/${id}/status`, { active: !route.active }, {
         headers: { 'Content-Type': 'application/json', Authorization: token ? `Bearer ${token}` : '' },
       });
-      const updated = response.data;
+      const updated = { ...response.data, id: response.data._id };
       setRoutes(routes.map(r => r.id === id ? updated : r));
     } catch {
       alert('Failed to update route status');

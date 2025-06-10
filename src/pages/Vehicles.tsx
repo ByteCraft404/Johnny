@@ -5,70 +5,77 @@ import api from '../utils/api';
 
 // Vehicle interface for type safety
 interface Vehicle {
-    id: number;
+    id: string;
     regNumber: string;
     type: string;
     capacity: number;
-    driver: string;
+    assignedDriver: string; // <-- Add this line
     route: string;
     departureTime: string;
     arrivalTime: string;
     status: string;
     lastMaintenance: string;
     imageUrl?: string;
+    // Remove 'driver' if not used in backend
+}
+
+interface Driver {
+    id: string;
+    name: string;
+    age?: number;
+    gender?: string;
+    status?: string;
 }
 
 const Vehicles: React.FC = () => {
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-    const [drivers, setDrivers] = useState<{ id: number; name: string }[]>([]);
-    const [routes, setRoutes] = useState<{ id: number; name: string }[]>([]);
+    const [drivers, setDrivers] = useState<Driver[]>([]);
+    const [routes, setRoutes] = useState<{ id: string; name: string; startTime: string; arrivalTime: string }[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState('All');
     const [statusFilter, setStatusFilter] = useState('All');
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [vehicleToDelete, setVehicleToDelete] = useState<number | null>(null);
+    const [vehicleToDelete, setVehicleToDelete] = useState<string | null>(null);
 
     // Edit modal state
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
     const [editForm, setEditForm] = useState<Partial<Vehicle>>({});
 
+    // Move these functions OUTSIDE of useEffect
+    const fetchVehicles = async () => {
+        const token = localStorage.getItem('token');
+        const response = await api.get('/api/vehicles', {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setVehicles(response.data.map((v: Omit<Vehicle, 'id'> & { _id: string }) => ({ ...v, id: v._id })));
+    };
+
+    const fetchDrivers = async () => {
+        const token = localStorage.getItem('token');
+        const response = await api.get('/api/drivers', {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setDrivers(response.data.map((d: Omit<Driver, 'id'> & { _id: string }) => ({ ...d, id: d._id })));
+    };
+
+    const fetchRoutes = async () => {
+        const token = localStorage.getItem('token');
+        const response = await api.get('/api/routes', {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+        });
+        setRoutes(response.data.map((r: { _id: string; name: string; startTime: string; arrivalTime: string }) => ({ ...r, id: r._id })));
+    };
+
     useEffect(() => {
-        const fetchVehicles = async () => {
-            const token = localStorage.getItem('token');
-            const response = await api.get('/api/vehicles', {
-                headers: {
-                    Authorization: token ? `Bearer ${token}` : '',
-                },
-            });
-            setVehicles(response.data);
-        };
         fetchVehicles();
     }, []);
 
     useEffect(() => {
-        const fetchDrivers = async () => {
-            const token = localStorage.getItem('token');
-            const response = await api.get('/api/drivers', {
-                headers: {
-                    Authorization: token ? `Bearer ${token}` : '',
-                },
-            });
-            setDrivers(response.data);
-        };
         fetchDrivers();
     }, []);
 
     useEffect(() => {
-        const fetchRoutes = async () => {
-            const token = localStorage.getItem('token');
-            const response = await api.get('/api/routes', {
-                headers: {
-                    Authorization: token ? `Bearer ${token}` : '',
-                },
-            });
-            setRoutes(response.data);
-        };
         fetchRoutes();
     }, []);
 
@@ -76,13 +83,13 @@ const Vehicles: React.FC = () => {
     const filteredVehicles = vehicles.filter((vehicle) => {
         const matchesSearch =
             vehicle.regNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            vehicle.driver.toLowerCase().includes(searchQuery.toLowerCase());
+            vehicle.assignedDriver.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesType = typeFilter === 'All' || vehicle.type === typeFilter;
         const matchesStatus = statusFilter === 'All' || vehicle.status === statusFilter;
         return matchesSearch && matchesType && matchesStatus;
     });
 
-    const handleDeleteClick = (id: number) => {
+    const handleDeleteClick = (id: string) => {
         setVehicleToDelete(id);
         setShowDeleteModal(true);
     };
@@ -104,21 +111,38 @@ const Vehicles: React.FC = () => {
     // Edit logic
     const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setEditForm((prev) => ({ ...prev, [name]: value }));
+
+        if (name === "route") {
+            const selectedRoute = routes.find(r => r.name === value);
+            setEditForm(prev => ({
+                ...prev,
+                route: value,
+                departureTime: selectedRoute?.startTime || "",
+                arrivalTime: selectedRoute?.arrivalTime || "",
+            }));
+        } else {
+            setEditForm(prev => ({
+                ...prev,
+                [name]: value,
+            }));
+        }
     };
 
     const handleEditSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!editingVehicle) return;
+        if (!editingVehicle || !editingVehicle.id) {
+            alert("No vehicle selected for editing!");
+            return;
+        }
         const token = localStorage.getItem('token');
-        const response = await api.put(`/api/vehicles/${editingVehicle.id}`, editForm, {
+        await api.put(`/api/vehicles/${editingVehicle.id}`, editForm, {
             headers: {
                 'Content-Type': 'application/json',
                 Authorization: token ? `Bearer ${token}` : '',
             },
         });
-        const updated = response.data;
-        setVehicles(vehicles.map((v) => (v.id === updated.id ? updated : v)));
+        await fetchVehicles();
+        await fetchDrivers();
         setShowEditModal(false);
         setEditingVehicle(null);
         setEditForm({});
@@ -143,11 +167,11 @@ const Vehicles: React.FC = () => {
             },
         });
 
-        // Update driver status if driver exists
-        const driverName = vehicle.driver;
+        // Optionally update driver status if driver exists
+        const driverName = vehicle.assignedDriver;
         const driver = drivers.find(d => d.name === driverName);
         if (driver) {
-            const driverStatus = nextStatus === 'In Service' ? 'Driving' : 'Not Driving';
+            const driverStatus = nextStatus === 'In Service' ? 'Active' : 'Inactive';
             await api.put(`/api/drivers/${driver.id}`, { status: driverStatus }, {
                 headers: {
                     'Content-Type': 'application/json',
@@ -156,7 +180,7 @@ const Vehicles: React.FC = () => {
             });
         }
 
-        const updated = response.data;
+        const updated = { ...response.data, id: response.data._id };
         setVehicles(vehicles.map(v => v.id === updated.id ? updated : v));
     };
 
@@ -254,7 +278,14 @@ const Vehicles: React.FC = () => {
                                             <div className="ml-4">
                                                 <div className="text-sm font-medium text-gray-900">{vehicle.regNumber}</div>
                                                 <div className="text-xs text-gray-500">
-                                                    Last maintenance: {vehicle.lastMaintenance}
+                                                    Last maintenance: {vehicle.lastMaintenance
+                                                        ? (() => {
+                                                            const d = new Date(vehicle.lastMaintenance);
+                                                            return isNaN(d.getTime())
+                                                                ? vehicle.lastMaintenance // fallback to raw string if invalid
+                                                                : d.toLocaleDateString();
+                                                        })()
+                                                        : 'N/A'}
                                                 </div>
                                             </div>
                                         </div>
@@ -264,14 +295,30 @@ const Vehicles: React.FC = () => {
                                         <div className="text-xs text-gray-500">{vehicle.capacity} seats</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {vehicle.driver}
+                                        {(() => {
+                                            const driverObj = drivers.find(d => d.name === vehicle.assignedDriver);
+                                            return driverObj ? (
+                                              <div>
+                                                <div>{driverObj.name}</div>
+                                                <div className="text-xs text-gray-500">
+                                                  {driverObj.age && <span>Age: {driverObj.age} </span>}
+                                                  {driverObj.gender && <span>Gender: {driverObj.gender}</span>}
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              vehicle.assignedDriver
+                                            );
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {vehicle.route}
+                                        {(() => {
+                                            const routeObj = routes.find(r => r.name === vehicle.route);
+                                            return routeObj ? routeObj.name : vehicle.route;
+                                        })()}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="text-sm text-gray-900">Dep: {vehicle.departureTime}</div>
-                                        <div className="text-sm text-gray-900">Arr: {vehicle.arrivalTime}</div>
+                                        <div>Dep: {vehicle.departureTime}</div>
+                                        <div>Arr: {vehicle.arrivalTime}</div>
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span
@@ -299,7 +346,7 @@ const Vehicles: React.FC = () => {
                                                 className="text-teal-600 hover:text-teal-900"
                                                 title="Edit Vehicle"
                                                 onClick={() => {
-                                                    setEditingVehicle(vehicle);
+                                                    setEditingVehicle(vehicle); // vehicle must have a valid id
                                                     setEditForm(vehicle);
                                                     setShowEditModal(true);
                                                 }}
@@ -442,16 +489,21 @@ const Vehicles: React.FC = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Driver</label>
                                     <select
                                         className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-teal-400 transition"
-                                        value={editForm.driver || ''}
-                                        name="driver"
+                                        value={editForm.assignedDriver || ''}
+                                        name="assignedDriver"
                                         onChange={handleEditChange}
                                     >
                                         <option value="">Select a driver</option>
-                                        {drivers.map((driver) => (
+                                        {drivers
+                                          .filter(driver =>
+                                            // Show drivers who are not Active, or the currently assigned driver
+                                            driver.status !== "Active" || driver.name === editForm.assignedDriver
+                                          )
+                                          .map(driver => (
                                             <option key={driver.id} value={driver.name}>
                                                 {driver.name}
                                             </option>
-                                        ))}
+                                          ))}
                                     </select>
                                 </div>
                                 <div>
@@ -504,10 +556,10 @@ const Vehicles: React.FC = () => {
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Last Maintenance</label>
                                     <input
-                                        className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-teal-400 transition"
-                                        value={editForm.lastMaintenance || ''}
-                                        name="lastMaintenance"
                                         type="date"
+                                        name="lastMaintenance"
+                                        className="w-full border rounded px-3 py-2 focus:ring-2 focus:ring-teal-400 transition"
+                                        value={editForm.lastMaintenance}
                                         onChange={handleEditChange}
                                     />
                                 </div>
