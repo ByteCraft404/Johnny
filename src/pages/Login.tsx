@@ -30,11 +30,8 @@ const Login: React.FC = () => {
 
       const data = response.data;
 
-      // Log the received data to the console for double-checking during development
-      // console.log("Backend response data:", data); 
-
       if (response.status === 200) {
-        // Store user data in sessionStorage
+        // *** CRITICAL CHANGES HERE: Using sessionStorage for both user data and token ***
         sessionStorage.setItem('user', JSON.stringify({
           name: data.name,
           email: data.email,
@@ -43,22 +40,20 @@ const Login: React.FC = () => {
           department: data.department || 'Administration',
         }));
         
-        // Store token in sessionStorage
-        sessionStorage.setItem('token', data.token);
+        sessionStorage.setItem('token', data.token); // <--- Changed from localStorage to sessionStorage
 
-        // Update UserContext state immediately with all user data
+        // Update UserContext state
+        // Ensure 'department' is also passed to setUser for immediate context update
         setUser({
           name: data.name,
           email: data.email,
           avatar: data.avatar || '',
           role: data.role,
-          department: data.department || 'Administration', // <--- THIS IS THE KEY ADDITION
+          department: data.department || 'Administration', // <--- Ensure department is passed here
         });
         
-        navigate('/'); // Navigate to the root, which then redirects based on auth status
+        navigate('/'); // Navigate to the home/dashboard route
       } else {
-        // This 'else' block might be hit if the backend sends 200 but success: false,
-        // which your backend doesn't seem to do based on the success response provided.
         setError(data.message || 'Login failed');
       }
     } catch (err: unknown) {
