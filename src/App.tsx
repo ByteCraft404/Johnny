@@ -19,7 +19,7 @@ import { UserProvider } from './context/UserContext'; // Assuming you have UserP
 
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
-  const isAuthenticated = localStorage.getItem('token');
+  const isAuthenticated = sessionStorage.getItem('token');
   return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
