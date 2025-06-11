@@ -26,6 +26,7 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 function App() {
   // Determine authentication status once at the top level
   const isAuthenticated = localStorage.getItem('token');
+console.log('isAuthenticated:', isAuthenticated); // Debugging line to check authentication status
 
   return (
     <UserProvider> {/* Ensure UserProvider wraps your entire Router */}

@@ -39,7 +39,7 @@ const Login: React.FC = () => {
           role: data.role,
           department: data.department || 'Administration',
         }));
-        
+
         sessionStorage.setItem('token', data.token); // <--- Changed from localStorage to sessionStorage
 
         // Update UserContext state
