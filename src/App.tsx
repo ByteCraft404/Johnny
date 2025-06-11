@@ -29,7 +29,7 @@ function App() {
   useEffect(() => {
     setIsAuthenticated(sessionStorage.getItem('token'));
     console.log('isAuthenticated:', isAuthenticated); // Debugging line to check authentication status
-  }, [isAuthenticated]); // Empty effect to mimic componentDidMount behavior
+  }, [sessionStorage]); // Empty effect to mimic componentDidMount behavior
 // Debugging line to check authentication status
 
   return (
