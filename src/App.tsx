@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './pages/Login';
@@ -25,11 +25,11 @@ const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   // Determine authentication status once at the top level
-  const isAuthenticated = useRef(localStorage.getItem('token'));
+  const [isAuthenticated,setIsAuthenticated] = useState(sessionStorage.getItem('token'));
   useEffect(() => {
-    isAuthenticated.current = localStorage.getItem('token');
-    console.log('isAuthenticated:', isAuthenticated.current); // Debugging line to check authentication status
-  }, []); // Empty effect to mimic componentDidMount behavior
+    setIsAuthenticated(sessionStorage.getItem('token'));
+    console.log('isAuthenticated:', isAuthenticated); // Debugging line to check authentication status
+  }, [isAuthenticated]); // Empty effect to mimic componentDidMount behavior
 // Debugging line to check authentication status
 
   return (
@@ -43,7 +43,7 @@ function App() {
           */}
           <Route 
             path="/" 
-            element={isAuthenticated.current ? <Navigate to="/dashboard" replace /> : <Login />} 
+            element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <Login />} 
           />
 
           {/* Public routes that don't require authentication */}
