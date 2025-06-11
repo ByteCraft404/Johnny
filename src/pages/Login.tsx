@@ -51,7 +51,7 @@ const Login: React.FC = () => {
           role: data.role,
           department: data.department || 'Administration', // <--- Ensure department is passed here
         });
-        
+        window.location.reload();
         navigate('/'); // Navigate to the home/dashboard route
       } else {
         setError(data.message || 'Login failed');
