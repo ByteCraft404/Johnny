@@ -4,13 +4,13 @@ import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import api from '../utils/api';
 
 interface Driver {
-  id: string; // <-- was number
+  id: string; 
   name: string;
   gender?: string;
   age?: number;
   vehicleReg?: string;
   vehicleType?: string;
-  status: 'Active' | 'Inactive' | string; // Match backend
+  status: 'Active' | 'Inactive' | string;
   route?: string;
   phone?: string;
   profileImage?: string;
@@ -19,11 +19,11 @@ interface Driver {
   licenseNumber?: string;
   licenseExpiry?: string;
   experience?: string;
-  assignedVehicle?: string; // Added property
+  assignedVehicle?: string; 
 }
 
 const Drivers: React.FC = () => {
-  // --- State Management ---
+  
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -40,7 +40,7 @@ const Drivers: React.FC = () => {
     regNumber: string;
     type: string;
     status: string;
-    route?: string; // <-- Add this line
+    route?: string;
     [key: string]: unknown;
   }
     const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -50,11 +50,11 @@ const Drivers: React.FC = () => {
     name: string;
     startTime?: string;
     arrivalTime?: string;
-    // add other fields as needed
+    
   }
   const [routes, setRoutes] = useState<Route[]>([]);
 
-  // --- Fetch Drivers (Polling) ---
+  
   const fetchDrivers = async () => {
     const token = localStorage.getItem('token');
     const response = await api.get('/api/drivers', {
@@ -74,7 +74,7 @@ const Drivers: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // --- Fetch Vehicles ---
+  
   const fetchVehicles = React.useCallback(async () => {
   const token = localStorage.getItem('token');
   const response = await api.get('/api/vehicles', {
@@ -86,7 +86,7 @@ const Drivers: React.FC = () => {
       regNumber: String(vehicle.regNumber ?? ""),
       type: String(vehicle.type ?? ""),
       status: String(vehicle.status ?? ""),
-      // Safely check if 'route' is a string; otherwise, assign undefined
+      
       route: typeof vehicle.route === 'string' ? vehicle.route : undefined,
     }))
   );
@@ -96,7 +96,7 @@ const Drivers: React.FC = () => {
     fetchVehicles();
   }, [fetchVehicles]);
 
-  // --- Fetch Routes ---
+  
   const fetchRoutes = React.useCallback(async () => {
     const token = localStorage.getItem('token');
     const response = await api.get('/api/routes', {
@@ -114,7 +114,7 @@ const Drivers: React.FC = () => {
     fetchRoutes();
   }, [fetchRoutes]);
 
-  // --- Filtering Logic ---
+  
   const filteredDrivers = drivers.filter((driver: Driver) => {
     const matchesSearch =
       driver.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -123,7 +123,6 @@ const Drivers: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // --- Delete Logic ---
   const handleDeleteClick = (id: string) => {
     setDriverToDelete(id);
     setShowDeleteModal(true);
@@ -147,15 +146,12 @@ const Drivers: React.FC = () => {
     }
   };
 
-  // --- Status Change Logic ---
-  // (Removed unused changeDriverStatus function)
-
-  // --- Edit Form Change Handler ---
+  
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
 
     if (name === "assignedVehicle") {
-      // Find the selected vehicle object
+      
       const selectedVehicle = vehicles.find(v => v.id === value);
       setEditForm(prev => ({
               ...prev,
@@ -168,7 +164,7 @@ const Drivers: React.FC = () => {
     }
   };
 
-  // --- Edit Form Submit Handler ---
+ 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDriver) {
@@ -197,10 +193,11 @@ const Drivers: React.FC = () => {
     }
   };
 
-  // --- Main Render ---
+  
+  
   return (
     <div className="space-y-6">
-      {/* --- Driver Management Header & Actions --- */}
+      
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800 mb-4 sm:mb-0">Driver Management</h1>
@@ -213,7 +210,7 @@ const Drivers: React.FC = () => {
           </Link>
         </div>
         
-        {/* --- Search & Filter --- */}
+        
         <div className="flex flex-col md:flex-row md:items-center mb-6 space-y-4 md:space-y-0">
           <div className="relative flex-grow md:mr-4">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -240,7 +237,7 @@ const Drivers: React.FC = () => {
           </div>
         </div>
         
-        {/* --- Drivers Table --- */}
+        
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -360,7 +357,7 @@ const Drivers: React.FC = () => {
         )}
       </div>
       
-      {/* --- Delete Confirmation Modal --- */}
+      
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md mx-auto">
@@ -386,7 +383,7 @@ const Drivers: React.FC = () => {
         </div>
       )}
 
-      {/* --- Edit Driver Modal --- */}
+      
       {showEditModal && editingDriver && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-all duration-300">
           <div
@@ -550,7 +547,7 @@ const Drivers: React.FC = () => {
                     <option value="">Select a vehicle</option>
                     {vehicles
                       .filter(vehicle =>
-                        // Show vehicles not In Service, or the currently assigned vehicle
+                        
                         vehicle.status !== "In Service" || vehicle.id === editForm.assignedVehicle
                       )
                       .map(vehicle => (
@@ -579,7 +576,7 @@ const Drivers: React.FC = () => {
         </div>
       )}
 
-      {/* --- Driver Details Modal --- */}
+      
       {showDetailsModal && detailsDriver && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-all duration-300">
           <div
